@@ -58,6 +58,11 @@ rojoU=$'\033[31mU\033[0m'
 chk "hay conflicto UU o AA en el repo de prueba" '"${G[@]}" status --porcelain | grep -qE "^(UU|AA) "'
 chk "los conflictos se pintan como U rojo" '[ "$(grep -oF "$rojoU" <<<"$salida" | wc -l | tr -d " ")" = 2 ]'
 
+# Algunos lanzadores (p. ej. los runners de macOS) arrancan los procesos con SIGPIPE ignorado:
+# el token no debe generarse con tuberías que dependan de esa señal.
+rm -rf "$XDG_STATE_HOME/sigpipe"; mkdir -p "$XDG_STATE_HOME/sigpipe"
+chk "con SIGPIPE ignorado termina (no se cuelga) y genera el token" 'XDG_STATE_HOME="$XDG_STATE_HOME/sigpipe" perl -e '"'"'$SIG{PIPE}="IGNORE"; alarm 20; exec @ARGV'"'"' -- "$TMP/statusline.sh" >/dev/null 2>&1 <<<"$JSON" && [ "$(wc -c <"$XDG_STATE_HOME/sigpipe/claude-code-statusline/token" | tr -d " ")" = 32 ]'
+
 chk "--version funciona"  '"$TMP/statusline.sh" --version | grep -q "^claude-code-statusline [0-9]"'
 chk "--doctor funciona"   '"$TMP/statusline.sh" --doctor >/dev/null'
 

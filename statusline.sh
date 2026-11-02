@@ -31,7 +31,8 @@ PUERTO="${STATUSLINE_PORT:-8765}"
 mkdir -p "$DIR_ESTADO" && chmod 700 "$DIR_ESTADO"
 # Token aleatorio (solo lectura para ti) que el servidor exige en cada petición
 if [ ! -s "$DIR_ESTADO/token" ]; then
-  ( umask 077; LC_ALL=C tr -dc 'a-f0-9' </dev/urandom | head -c 32 >"$DIR_ESTADO/token" )
+  # od lee exactamente 16 bytes y termina: sin tuberías infinitas (tr -dc sobre /dev/urandom se cuelga si SIGPIPE está ignorado)
+  ( umask 077; od -An -N16 -tx1 /dev/urandom | tr -d ' \n' >"$DIR_ESTADO/token" )
 fi
 TOKEN=$(cat "$DIR_ESTADO/token" 2>/dev/null)
 
