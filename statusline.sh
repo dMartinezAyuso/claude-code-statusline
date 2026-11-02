@@ -39,7 +39,7 @@ TOKEN=$(cat "$DIR_ESTADO/token" 2>/dev/null)
 # (p. ej. tras un `git pull`), lo reinicia para que nunca quede código antiguo en ejecución.
 asegura_servidor() {
   local sello; sello=$(cksum <"$DIR_SCRIPT/diffserver.py" 2>/dev/null | cut -d' ' -f1,2)
-  if nc -z 127.0.0.1 "$PUERTO" 2>/dev/null; then
+  if nc -z -w 1 127.0.0.1 "$PUERTO" 2>/dev/null; then
     [ "$(cat "$DIR_ESTADO/server.sello" 2>/dev/null)" = "$sello" ] && return
     [ -s "$DIR_ESTADO/server.pid" ] && kill "$(cat "$DIR_ESTADO/server.pid")" 2>/dev/null
     sleep 0.3
