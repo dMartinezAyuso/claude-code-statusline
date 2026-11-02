@@ -1,5 +1,9 @@
 # claude-code-statusline
 
+[![CI](https://github.com/dMartinezAyuso/claude-code-statusline/actions/workflows/ci.yml/badge.svg)](https://github.com/dMartinezAyuso/claude-code-statusline/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/dMartinezAyuso/claude-code-statusline/actions/workflows/codeql.yml/badge.svg)](https://github.com/dMartinezAyuso/claude-code-statusline/actions/workflows/codeql.yml)
+[![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
+
 Barra de estado personalizada de 3 líneas para [Claude Code](https://claude.com/claude-code):
 
 1. Modelo y esfuerzo · proyecto · rama git (↑ahead ↓behind) · estado git · PR
@@ -18,17 +22,18 @@ El enlace `ⓘ ayuda` abre una leyenda con el significado de cada símbolo.
 
 ```bash
 git clone https://github.com/dMartinezAyuso/claude-code-statusline.git ~/.claude/statusline
+cd ~/.claude/statusline
+git checkout "$(git describe --tags --abbrev=0)"   # opcional: última versión estable en vez de main
+./install.sh                                       # configura statusLine en ~/.claude/settings.json
 ```
 
-En `~/.claude/settings.json`:
+`install.sh` comprueba las dependencias (`./statusline.sh --doctor`), hace **copia de seguridad** de `settings.json`, no pisa un `statusLine` ajeno salvo que uses `--force`, y se deshace con `./install.sh --uninstall`. Si usas otra carpeta de configuración, define `CLAUDE_CONFIG_DIR`.
+
+Instalación manual: en `settings.json`
 
 ```json
 {
-  "statusLine": {
-    "type": "command",
-    "command": "~/.claude/statusline/statusline.sh",
-    "refreshInterval": 10
-  }
+  "statusLine": { "type": "command", "command": "~/.claude/statusline/statusline.sh", "refreshInterval": 10 }
 }
 ```
 
@@ -40,7 +45,7 @@ Se probó con el JSON de statusline de Claude Code de noviembre de 2026. Los cam
 cd ~/.claude/statusline
 git pull --ff-only          # última versión
 # o, para fijar una versión concreta y estable:
-git fetch --tags && git checkout v0.1.0
+git fetch --tags && git checkout vX.Y.Z   # ver la última en Releases
 ```
 
 No hace falta reiniciar nada: en el siguiente refresco (≤10 s) `statusline.sh` detecta que `diffserver.py` ha cambiado y reinicia el servidor con el código nuevo. El token se conserva.
@@ -77,7 +82,11 @@ El servidor expone el código sin commitear de tus repos, así que está protegi
 
 El token va en la URL de los enlaces, por lo que quien tenga acceso a tu sesión de terminal podría verlo: es un modelo de amenaza local pensado para evitar accesos desde el navegador, no frente a otro usuario con acceso a tu cuenta. Para rotarlo, borra `~/.local/state/claude-code-statusline/token` y reinicia el servidor (`pkill -f diffserver.py`).
 
-¿Encuentras una vulnerabilidad? Abre un issue o escríbeme.
+¿Encuentras una vulnerabilidad? Usa el [aviso privado](https://github.com/dMartinezAyuso/claude-code-statusline/security/advisories/new) (ver [SECURITY.md](SECURITY.md)), no un issue público.
+
+## Contribuir
+
+Las PR son bienvenidas: lee [CONTRIBUTING.md](CONTRIBUTING.md). La CI ejecuta shellcheck, las pruebas y CodeQL en cada PR.
 
 ## Licencia
 
