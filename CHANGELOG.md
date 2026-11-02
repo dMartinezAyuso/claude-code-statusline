@@ -11,7 +11,7 @@ Los cambios de seguridad se marcan con **[seguridad]**.
 - Servidor local de diffs (`diffserver.py`) con enlaces clicables y página de ayuda (muestra la versión).
 - Reinicio automático del servidor cuando cambia su código tras una actualización.
 - `install.sh` (instala/desinstala en `settings.json` con copia de seguridad) y `statusline.sh --doctor` / `--version`.
-- Pruebas automáticas (servidor y barra) y CI en Linux y macOS, Python 3.9 y 3.13.
+- Pruebas automáticas (servidor y barra) y CI en Linux y macOS (Python 3.9–3.13).
 - Release automatizada al subir un tag `vX.Y.Z` (notas desde este fichero, tarball y SHA256SUMS).
 - CodeQL, Dependabot, plantillas de PR e issues y política de seguridad.
 ### Corregido
