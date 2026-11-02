@@ -1,0 +1,30 @@
+name: Error
+description: Algo no funciona como debería
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Si es un problema de **seguridad**, no uses este formulario: usa el aviso privado (ver pestaña Security)."
+  - type: textarea
+    id: que
+    attributes:
+      label: Qué ocurre
+      description: Qué esperabas y qué ves en su lugar. Si puedes, pega una captura **sin enlaces de la barra** (llevan el token).
+    validations: { required: true }
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Salida de `./statusline.sh --doctor`
+      render: text
+    validations: { required: true }
+  - type: input
+    id: entorno
+    attributes:
+      label: Sistema y terminal
+      placeholder: macOS 15, iTerm2 3.5
+    validations: { required: true }
+  - type: input
+    id: claude
+    attributes:
+      label: Versión de Claude Code
+      placeholder: salida de `claude --version`

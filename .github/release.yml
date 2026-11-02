@@ -1,0 +1,14 @@
+changelog:
+  exclude:
+    labels: [ignore-for-release]
+  categories:
+    - title: Seguridad
+      labels: [security]
+    - title: Novedades
+      labels: [enhancement]
+    - title: Correcciones
+      labels: [bug]
+    - title: Documentación
+      labels: [documentation]
+    - title: Otros cambios
+      labels: ["*"]

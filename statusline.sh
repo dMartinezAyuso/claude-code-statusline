@@ -4,18 +4,50 @@
 #  2) contexto · límites de uso 5h/7d (con cuenta atrás) · coste · caché · tokens · duración · líneas
 #  3) todos los ficheros cambiados respecto a HEAD con su estado (envuelto en varias líneas)
 export LC_ALL=C
+
+DIR_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+case "${1:-}" in
+  --version|-V)
+    echo "claude-code-statusline $(cat "$DIR_SCRIPT/VERSION" 2>/dev/null || echo desconocida)"; exit 0 ;;
+  --doctor)
+    # Comprueba dependencias y estado; sale con 1 si falta algo imprescindible
+    fallo=0
+    for c in bash jq git nc python3 awk cksum; do
+      if command -v "$c" >/dev/null 2>&1; then printf '  ✔ %s\n' "$c"; else printf '  ✖ %s (falta)\n' "$c"; fallo=1; fi
+    done
+    printf '  versión: %s\n' "$(cat "$DIR_SCRIPT/VERSION" 2>/dev/null || echo desconocida)"
+    printf '  estado:  %s\n' "${XDG_STATE_HOME:-$HOME/.local/state}/claude-code-statusline"
+    exit "$fallo" ;;
+  -h|--help)
+    echo "Uso: statusline.sh [--version|--doctor|--help]   (sin argumentos lee el JSON de Claude Code por stdin)"; exit 0 ;;
+esac
+
 input=$(cat)
 
-# Dónde está el script (para encontrar diffserver.py) y dónde se guarda el estado (token, ancho)
-DIR_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Dónde se guarda el estado (token, pid del servidor)
 DIR_ESTADO="${XDG_STATE_HOME:-$HOME/.local/state}/claude-code-statusline"
 PUERTO="${STATUSLINE_PORT:-8765}"
 mkdir -p "$DIR_ESTADO" && chmod 700 "$DIR_ESTADO"
 # Token aleatorio (solo lectura para ti) que el servidor exige en cada petición
 if [ ! -s "$DIR_ESTADO/token" ]; then
-  ( umask 077; LC_ALL=C tr -dc 'a-f0-9' </dev/urandom | head -c 32 >"$DIR_ESTADO/token" )
+  # od lee exactamente 16 bytes y termina: sin tuberías infinitas (tr -dc sobre /dev/urandom se cuelga si SIGPIPE está ignorado)
+  ( umask 077; od -An -N16 -tx1 /dev/urandom | tr -d ' \n' >"$DIR_ESTADO/token" )
 fi
 TOKEN=$(cat "$DIR_ESTADO/token" 2>/dev/null)
+
+# Arranca el servidor de diffs si no corre; si corre con una versión distinta del código
+# (p. ej. tras un `git pull`), lo reinicia para que nunca quede código antiguo en ejecución.
+asegura_servidor() {
+  local sello; sello=$(cksum <"$DIR_SCRIPT/diffserver.py" 2>/dev/null | cut -d' ' -f1,2)
+  if nc -z -w 1 127.0.0.1 "$PUERTO" 2>/dev/null; then
+    [ "$(cat "$DIR_ESTADO/server.sello" 2>/dev/null)" = "$sello" ] && return
+    [ -s "$DIR_ESTADO/server.pid" ] && kill "$(cat "$DIR_ESTADO/server.pid")" 2>/dev/null
+    sleep 0.3
+  fi
+  printf '%s' "$sello" >"$DIR_ESTADO/server.sello"
+  (STATUSLINE_PORT="$PUERTO" STATUSLINE_STATE="$DIR_ESTADO" nohup python3 "$DIR_SCRIPT/diffserver.py" >/dev/null 2>&1 &)
+}
 
 # Una sola llamada a jq; separador \x1f para conservar los campos vacíos.
 IFS=$'\x1f' read -r model effort dir ctx_size cur tin tout cost dur_ms added removed \
@@ -85,7 +117,7 @@ term_width() {
   local w="" pid=$$ t i src=""
   [ "${COLUMNS:-0}" -gt 20 ] 2>/dev/null && { w=$COLUMNS; src=COLUMNS; }
   if [ -z "$w" ]; then
-    w=$(stty size </dev/tty 2>/dev/null | awk '{print $2}'); [ -n "$w" ] && src=/dev/tty
+    w=$({ stty size </dev/tty; } 2>/dev/null | awk '{print $2}'); [ -n "$w" ] && src=/dev/tty
   fi
   if [ -z "$w" ]; then
     for i in 1 2 3 4 5 6; do
@@ -136,9 +168,7 @@ if [ -n "$dir" ]; then
     [ -n "$g" ] && l1+="${sep}${g# }" || l1+="${sep}${GREEN}✔ limpio${R}"
 
     # Servidor local de diffs (127.0.0.1, solo lectura): se arranca solo si no está corriendo
-    if ! nc -z 127.0.0.1 "$PUERTO" 2>/dev/null; then
-      (STATUSLINE_PORT="$PUERTO" STATUSLINE_STATE="$DIR_ESTADO" nohup python3 "$DIR_SCRIPT/diffserver.py" >/dev/null 2>&1 &)
-    fi
+    asegura_servidor
     top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
     enc() { local x="$1"; x="${x//%/%25}"; x="${x// /%20}"; x="${x//#/%23}"; x="${x//\?/%3F}"; x="${x//&/%26}"; printf '%s' "$x"; }
     base="http://127.0.0.1:${PUERTO}/?t=${TOKEN}&d=$(enc "$top")"
@@ -151,10 +181,10 @@ if [ -n "$dir" ]; then
         st="${line:0:2}"; f="${line:3}"; f="${f##* -> }"; f="${f%\"}"; f="${f#\"}"
         case "$st" in
           "??") mark="${DIM}?${R}" ;;
+          U?|?U|AA|DD) mark="${RED}U${R}" ;;   # conflictos: antes que A*/*D*, que los taparían
           *D*) mark="${RED}D${R}" ;;
           A*) mark="${GREEN}A${R}" ;;
           R*) mark="${CYAN}R${R}" ;;
-          UU|AA|DD) mark="${RED}U${R}" ;;
           *) mark="${YELLOW}M${R}" ;;
         esac
         item_len=$(( ${#f} + 4 ))
@@ -175,7 +205,6 @@ fi
 [ -n "$vim" ] && l1+="${sep}${DIM}${vim}${R}"
 # ⓘ: enlace a la leyenda de la barra (la sirve diffserver.py)
 if [ -n "$l1" ]; then
-  nc -z 127.0.0.1 "$PUERTO" 2>/dev/null || (STATUSLINE_PORT="$PUERTO" STATUSLINE_STATE="$DIR_ESTADO" nohup python3 "$DIR_SCRIPT/diffserver.py" >/dev/null 2>&1 &)
   l1+=" "$'\033]8;;'"http://127.0.0.1:${PUERTO}/ayuda?t=${TOKEN}"$'\a'"${DIM} ⓘ ayuda ${R}"$'\033]8;;\a'
 fi
 

@@ -5,6 +5,7 @@ import hmac
 import html
 import os
 import subprocess
+import socketserver
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -36,8 +37,22 @@ pre{margin:0;overflow-x:auto}
 """
 
 
+MAX_DIFF = 512 * 1024   # bytes por fichero; más allá se trunca
+GIT_TIMEOUT = 10        # segundos por llamada a git
+
+try:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")) as _f:
+        VERSION = _f.read().strip()
+except OSError:
+    VERSION = "desconocida"
+
+
 def git(repo, *args):
-    r = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, errors="replace")
+    try:
+        r = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True,
+                           errors="replace", timeout=GIT_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return ""
     return r.stdout
 
 
@@ -112,7 +127,8 @@ def pagina_ayuda():
              ".k{white-space:nowrap;font-weight:600;width:1%}")
     return ("<!doctype html><meta charset=utf-8><title>Ayuda · barra de estado</title>"
             f"<style>{CSS}{extra}section{{scroll-margin-top:0}}</style>"
-            "<p style='margin:16px'>Qué significa cada cosa de la barra de estado de Claude Code.</p>" + cuerpo)
+            "<p style='margin:16px'>Qué significa cada cosa de la barra de estado de Claude Code.</p>" + cuerpo +
+            f"<p style='margin:16px' class=m>claude-code-statusline v{html.escape(VERSION)}</p>")
 
 
 def pagina(repo):
@@ -125,6 +141,8 @@ def pagina(repo):
     cuerpo = ""
     for est, f in ficheros:
         d = diff_fichero(repo, est, f)
+        if len(d) > MAX_DIFF:
+            d = d[:MAX_DIFF] + f"\n... diff truncado (más de {MAX_DIFF // 1024} KiB)\n"
         cuerpo += (f'<section id="{html.escape(f, quote=True)}"><h2>{html.escape(est.strip() or "M")} '
                    f'{html.escape(f)}</h2><pre>{pinta(d) if d.strip() else "<span class=l>(sin cambios de texto)</span>"}</pre></section>')
     if not ficheros:
@@ -132,6 +150,15 @@ def pagina(repo):
     titulo = f"Cambios · {os.path.basename(repo)} ({len(ficheros)})"
     return (f"<!doctype html><meta charset=utf-8><title>{html.escape(titulo)}</title>"
             f"<style>{CSS}</style><nav>{nav}</nav>{cuerpo}")
+
+
+class Servidor(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer.server_bind hace una resolución DNS inversa (socket.getfqdn) que puede tardar
+        # muchos segundos en algunos entornos (p. ej. macOS en CI) y retrasa el arranque. No la usamos.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name = self.server_address[0]
+        self.server_port = self.server_address[1]
 
 
 class H(BaseHTTPRequestHandler):
@@ -178,4 +205,10 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    ThreadingHTTPServer(("127.0.0.1", PUERTO), H).serve_forever()
+    # El pid permite a statusline.sh reiniciar el servidor cuando el código cambia
+    try:
+        with open(os.path.join(ESTADO, "server.pid"), "w") as f:
+            f.write(str(os.getpid()))
+    except OSError:
+        pass
+    Servidor(("127.0.0.1", PUERTO), H).serve_forever()
