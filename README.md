@@ -34,6 +34,29 @@ En `~/.claude/settings.json`:
 
 Se probó con el JSON de statusline de Claude Code de noviembre de 2026. Los campos que no existan simplemente no se pintan.
 
+## Actualizar
+
+```bash
+cd ~/.claude/statusline
+git pull --ff-only          # última versión
+# o, para fijar una versión concreta y estable:
+git fetch --tags && git checkout v0.1.0
+```
+
+No hace falta reiniciar nada: en el siguiente refresco (≤10 s) `statusline.sh` detecta que `diffserver.py` ha cambiado y reinicia el servidor con el código nuevo. El token se conserva.
+
+Antes de actualizar, mira el [CHANGELOG](CHANGELOG.md): los cambios de seguridad van marcados con **[seguridad]**. Para enterarte de nuevas versiones usa *Watch → Custom → Releases* en GitHub.
+
+## Buenas prácticas de uso
+
+- **Fija una versión** (`git checkout vX.Y.Z`) si prefieres estabilidad; sigue `main` si quieres lo último.
+- **Lee el diff antes de actualizar** (`git diff HEAD..origin/main`): este script se ejecuta cada pocos segundos con tus permisos y lanza un servidor. Es poco código; revísalo como harías con cualquier script de terceros.
+- **No cambies el puerto a una IP distinta de `127.0.0.1`** ni expongas el servidor con túneles o proxies: serviría tu código sin commitear a quien llegue.
+- **No compartas capturas ni copies enlaces de la barra** (llevan el token en la URL). Si lo haces, rota el token (abajo).
+- **Rota el token** si sospechas que se ha filtrado: `rm ~/.local/state/claude-code-statusline/token`; se genera otro en el siguiente refresco y el servidor lo lee en cada petición.
+- **Para parar el servidor**: `pkill -f diffserver.py`; se relanza solo al volver a usar la barra. Para desactivarlo del todo, quita el statusline de `settings.json`.
+- **Personaliza en un fork o rama propia**, no sobre `main` clonado, para que `git pull` no choque con tus cambios.
+
 ## Qué ejecuta en tu máquina
 
 Conviene saberlo antes de instalar:

@@ -178,4 +178,10 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    # El pid permite a statusline.sh reiniciar el servidor cuando el código cambia
+    try:
+        with open(os.path.join(ESTADO, "server.pid"), "w") as f:
+            f.write(str(os.getpid()))
+    except OSError:
+        pass
     ThreadingHTTPServer(("127.0.0.1", PUERTO), H).serve_forever()

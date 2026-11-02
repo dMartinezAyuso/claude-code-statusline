@@ -17,6 +17,19 @@ if [ ! -s "$DIR_ESTADO/token" ]; then
 fi
 TOKEN=$(cat "$DIR_ESTADO/token" 2>/dev/null)
 
+# Arranca el servidor de diffs si no corre; si corre con una versión distinta del código
+# (p. ej. tras un `git pull`), lo reinicia para que nunca quede código antiguo en ejecución.
+asegura_servidor() {
+  local sello; sello=$(cksum <"$DIR_SCRIPT/diffserver.py" 2>/dev/null | cut -d' ' -f1,2)
+  if nc -z 127.0.0.1 "$PUERTO" 2>/dev/null; then
+    [ "$(cat "$DIR_ESTADO/server.sello" 2>/dev/null)" = "$sello" ] && return
+    [ -s "$DIR_ESTADO/server.pid" ] && kill "$(cat "$DIR_ESTADO/server.pid")" 2>/dev/null
+    sleep 0.3
+  fi
+  printf '%s' "$sello" >"$DIR_ESTADO/server.sello"
+  (STATUSLINE_PORT="$PUERTO" STATUSLINE_STATE="$DIR_ESTADO" nohup python3 "$DIR_SCRIPT/diffserver.py" >/dev/null 2>&1 &)
+}
+
 # Una sola llamada a jq; separador \x1f para conservar los campos vacíos.
 IFS=$'\x1f' read -r model effort dir ctx_size cur tin tout cost dur_ms added removed \
   h5 h5_reset d7 d7_reset hit pr_num pr_state vim agent fast < <(
@@ -85,7 +98,7 @@ term_width() {
   local w="" pid=$$ t i src=""
   [ "${COLUMNS:-0}" -gt 20 ] 2>/dev/null && { w=$COLUMNS; src=COLUMNS; }
   if [ -z "$w" ]; then
-    w=$(stty size </dev/tty 2>/dev/null | awk '{print $2}'); [ -n "$w" ] && src=/dev/tty
+    w=$({ stty size </dev/tty; } 2>/dev/null | awk '{print $2}'); [ -n "$w" ] && src=/dev/tty
   fi
   if [ -z "$w" ]; then
     for i in 1 2 3 4 5 6; do
@@ -136,9 +149,7 @@ if [ -n "$dir" ]; then
     [ -n "$g" ] && l1+="${sep}${g# }" || l1+="${sep}${GREEN}✔ limpio${R}"
 
     # Servidor local de diffs (127.0.0.1, solo lectura): se arranca solo si no está corriendo
-    if ! nc -z 127.0.0.1 "$PUERTO" 2>/dev/null; then
-      (STATUSLINE_PORT="$PUERTO" STATUSLINE_STATE="$DIR_ESTADO" nohup python3 "$DIR_SCRIPT/diffserver.py" >/dev/null 2>&1 &)
-    fi
+    asegura_servidor
     top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
     enc() { local x="$1"; x="${x//%/%25}"; x="${x// /%20}"; x="${x//#/%23}"; x="${x//\?/%3F}"; x="${x//&/%26}"; printf '%s' "$x"; }
     base="http://127.0.0.1:${PUERTO}/?t=${TOKEN}&d=$(enc "$top")"
@@ -175,7 +186,6 @@ fi
 [ -n "$vim" ] && l1+="${sep}${DIM}${vim}${R}"
 # ⓘ: enlace a la leyenda de la barra (la sirve diffserver.py)
 if [ -n "$l1" ]; then
-  nc -z 127.0.0.1 "$PUERTO" 2>/dev/null || (STATUSLINE_PORT="$PUERTO" STATUSLINE_STATE="$DIR_ESTADO" nohup python3 "$DIR_SCRIPT/diffserver.py" >/dev/null 2>&1 &)
   l1+=" "$'\033]8;;'"http://127.0.0.1:${PUERTO}/ayuda?t=${TOKEN}"$'\a'"${DIM} ⓘ ayuda ${R}"$'\033]8;;\a'
 fi
 
