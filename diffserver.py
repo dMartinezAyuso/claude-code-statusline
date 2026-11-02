@@ -5,6 +5,7 @@ import hmac
 import html
 import os
 import subprocess
+import socketserver
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
@@ -151,6 +152,15 @@ def pagina(repo):
             f"<style>{CSS}</style><nav>{nav}</nav>{cuerpo}")
 
 
+class Servidor(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer.server_bind hace una resolución DNS inversa (socket.getfqdn) que puede tardar
+        # muchos segundos en algunos entornos (p. ej. macOS en CI) y retrasa el arranque. No la usamos.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name = self.server_address[0]
+        self.server_port = self.server_address[1]
+
+
 class H(BaseHTTPRequestHandler):
     def deniega(self, codigo, msg):
         self.send_response(codigo)
@@ -201,4 +211,4 @@ if __name__ == "__main__":
             f.write(str(os.getpid()))
     except OSError:
         pass
-    ThreadingHTTPServer(("127.0.0.1", PUERTO), H).serve_forever()
+    Servidor(("127.0.0.1", PUERTO), H).serve_forever()

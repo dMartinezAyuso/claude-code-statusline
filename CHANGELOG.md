@@ -17,6 +17,7 @@ Los cambios de seguridad se marcan con **[seguridad]**.
 ### Corregido
 - Los conflictos de merge `AA` y `DD` se pintaban como añadido/borrado en lugar de conflicto.
 - La barra se colgaba al crear el token si el lanzador ejecutaba los procesos con `SIGPIPE` ignorado (`tr -dc` sobre `/dev/urandom` giraba sin fin); ahora se genera con `od`.
+- El servidor tardaba en arrancar en entornos con DNS lento por una resolución inversa (`getfqdn`) innecesaria; se ha eliminado.
 ### Seguridad
 - **[seguridad]** Token aleatorio obligatorio en cada petición (permisos 600, comparación en tiempo constante).
 - **[seguridad]** Validación de la cabecera `Host` contra DNS rebinding.

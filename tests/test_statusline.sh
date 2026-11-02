@@ -9,6 +9,8 @@ trap 'kill "$(cat "$TMP/state/claude-code-statusline/server.pid" 2>/dev/null)" 2
 
 # Ejecuta con tope de 20 s (perl existe en macOS y Linux) para que un cuelgue falle en vez de bloquear la CI
 timeout_run() { perl -e 'alarm 20; exec @ARGV' -- "$@"; }
+# Espera (hasta 15 s) a que el puerto acepte conexiones: los runners lentos tardan en arrancar Python
+espera_servidor() { local i; for i in $(seq 1 30); do nc -z -w 1 127.0.0.1 "$STATUSLINE_PORT" >/dev/null 2>&1 && return 0; sleep 0.5; done; return 1; }
 ok()  { printf '  ✔ %s\n' "$1"; }
 mal() { printf '  ✖ %s\n' "$1"; fallos=$((fallos + 1)); }
 chk() { if eval "$2"; then ok "$1"; else mal "$1"; fi; }
@@ -33,7 +35,7 @@ perm_d=$(stat -c %a "$ESTADO" 2>/dev/null || stat -f %Lp "$ESTADO")
 chk "token con permisos 600"           '[ "$perm_f" = 600 ]'
 chk "carpeta de estado con permisos 700" '[ "$perm_d" = 700 ]'
 
-sleep 1.5
+espera_servidor
 chk "el servidor responde 403 sin token" '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/ayuda")" = 403 ]'
 chk "el servidor responde 200 con token" '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/ayuda?t=$(cat "$ESTADO/token")")" = 200 ]'
 
@@ -42,7 +44,7 @@ echo "$JSON" | timeout_run "$TMP/statusline.sh" >/dev/null 2>&1; sleep 0.5
 chk "sin cambios no reinicia el servidor" '[ "$(cat "$ESTADO/server.pid")" = "$pid1" ]'
 
 echo "# actualizado" >>"$TMP/diffserver.py"
-echo "$JSON" | timeout_run "$TMP/statusline.sh" >/dev/null 2>&1; sleep 1.5
+echo "$JSON" | timeout_run "$TMP/statusline.sh" >/dev/null 2>&1; sleep 1; espera_servidor
 chk "tras actualizar reinicia el servidor" '[ "$(cat "$ESTADO/server.pid")" != "$pid1" ]'
 chk "y el servidor nuevo responde"         'nc -z -w 1 127.0.0.1 "$STATUSLINE_PORT" >/dev/null 2>&1'
 

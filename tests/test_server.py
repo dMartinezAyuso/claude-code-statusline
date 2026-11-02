@@ -32,7 +32,7 @@ class ServidorBase(unittest.TestCase):
         sys.path.insert(0, RAIZ)
         sys.modules.pop("diffserver", None)
         cls.mod = importlib.import_module("diffserver")
-        cls.srv = cls.mod.ThreadingHTTPServer(("127.0.0.1", cls.puerto), cls.mod.H)
+        cls.srv = cls.mod.Servidor(("127.0.0.1", cls.puerto), cls.mod.H)
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
 
         # Repo git de prueba con ficheros "difíciles"
@@ -67,6 +67,18 @@ class ServidorBase(unittest.TestCase):
         cuerpo = r.read().decode(errors="replace")
         c.close()
         return r, cuerpo
+
+
+class Arranque(ServidorBase):
+    def test_arranque_no_hace_dns_inverso(self):
+        # Si volviera a llamarse a getfqdn, el arranque se bloquearía en entornos con DNS lento
+        original = socket.getfqdn
+        socket.getfqdn = lambda *a, **k: self.fail("el servidor no debe llamar a socket.getfqdn")
+        try:
+            srv = self.mod.Servidor(("127.0.0.1", 0), self.mod.H)
+            srv.server_close()
+        finally:
+            socket.getfqdn = original
 
 
 class Autenticacion(ServidorBase):
