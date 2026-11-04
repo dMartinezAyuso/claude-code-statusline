@@ -240,8 +240,12 @@ if [ -n "$cost" ]; then
   burn=""
   # Spend rate ($/h): only after 5 min of session, earlier it is just noise
   if [ -n "$dur_ms" ] && [ "$dur_ms" -ge 300000 ] 2>/dev/null; then
-    rate=$(awk -v c="$cost" -v d="$dur_ms" 'BEGIN{printf "%.0f", c / d * 3600000}')
-    if [ "$rate" -ge 30 ]; then bc=$RED; elif [ "$rate" -ge 15 ]; then bc=$YELLOW; else bc=$DIM; fi
+    # Colour thresholds in USD/hour (grey below warn, yellow from warn, red from high); invalid values use the defaults
+    burn_warn="${STATUSLINE_BURN_WARN:-15}"; [[ "$burn_warn" =~ ^[0-9]+(\.[0-9]+)?$ ]] || burn_warn=15
+    burn_high="${STATUSLINE_BURN_HIGH:-30}"; [[ "$burn_high" =~ ^[0-9]+(\.[0-9]+)?$ ]] || burn_high=30
+    read -r rate level < <(awk -v c="$cost" -v d="$dur_ms" -v w="$burn_warn" -v h="$burn_high" \
+      'BEGIN{r = c / d * 3600000; printf "%.0f %d", r, (r >= h) ? 2 : ((r >= w) ? 1 : 0)}')
+    case "$level" in 2) bc=$RED ;; 1) bc=$YELLOW ;; *) bc=$DIM ;; esac
     burn=" ${bc}\$${rate}/h${R}"
   fi
   add2 "${c}\$$(printf '%.2f' "$cost")${R}${burn}"

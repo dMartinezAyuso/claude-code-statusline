@@ -24,7 +24,7 @@ The expiry time is an estimate: Anthropic's [default cache lifetime is 5 minutes
 
 The re-cache cost uses the 5-minute cache-write price of the active model from the [official pricing table](https://platform.claude.com/docs/en/about-claude/pricing), per million tokens: Fable and Mythos $12.50, Opus 5.5 $5, other Opus $6.25, Sonnet 5 and 5.5 $2.50, other Sonnet $3.75, Haiku 5.5 $0.125 (prompts up to 100k tokens) or $0.625 (longer), other Haiku $1.25. An unknown model uses $6.25. Prices change, so set `STATUSLINE_RECACHE_USD_PER_MTOK` to override them.
 
-`$N/h` next to the cost is the average spend rate of the session; it appears after 5 minutes so early numbers do not mislead. Fields that Claude Code does not report (for example the 5h/7d limits without a subscription) are not drawn.
+`$N/h` next to the cost is the average spend rate of the session; it appears after 5 minutes so early numbers do not mislead. It is grey below `STATUSLINE_BURN_WARN` (default 15 USD/h), yellow from there and red from `STATUSLINE_BURN_HIGH` (default 30 USD/h). The defaults are arbitrary, not an official figure: set them to what is a lot for your budget. Fields that Claude Code does not report (for example the 5h/7d limits without a subscription) are not drawn.
 
 ## Requirements
 
@@ -60,6 +60,8 @@ All settings are optional environment variables:
 | Variable | Default | What it does |
 |---|---|---|
 | `STATUSLINE_PORT` | `8765` | Port of the local diff server (always bound to `127.0.0.1`). |
+| `STATUSLINE_BURN_WARN` | `15` | Spend rate (USD/hour) from which `$N/h` turns yellow. |
+| `STATUSLINE_BURN_HIGH` | `30` | Spend rate (USD/hour) from which `$N/h` turns red. |
 | `STATUSLINE_RECACHE_USD_PER_MTOK` | by model | Price per million tokens used to estimate the re-cache cost in the warning line. |
 | `CLAUDE_CONFIG_DIR` | `~/.claude` | Folder whose `settings.json` `install.sh` edits. |
 | `XDG_STATE_HOME` | `~/.local/state` | Where the token and server state are kept (`claude-code-statusline/`). |

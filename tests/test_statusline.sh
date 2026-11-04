@@ -76,6 +76,16 @@ chk "live cache: no re-cache warning"                    '[[ "$fresh" != *expire
 chk "expired cache: warns with context size and cost"  '[[ "$old" == *"expired"*"200.0k"*"\$1.25"* ]]'
 chk "no transcript: no countdown and no warning"        '[[ "$none" != *↺* && "$none" != *expired* ]]'
 chk "spend rate: \$3 in 30 min = \$6/h"              '[[ "$fresh" == *"\$6/h"* ]]'
+# $/h colour thresholds are configurable: grey below the first, yellow from it, red from the second
+burn_color() {   # $1 = warn threshold, $2 = high threshold (either may be empty for the default)
+  echo "$NO_GIT}" | STATUSLINE_BURN_WARN="$1" STATUSLINE_BURN_HIGH="$2" timeout_run "$TMP/statusline.sh" 2>/dev/null \
+    | grep -o $'\033\\[[0-9]*m\\$6/h' | head -1
+}
+chk "burn: default thresholds keep \$6/h grey"          '[ "$(burn_color "" "")" = $'"'"'\033[2m$6/h'"'"' ]'
+chk "burn: STATUSLINE_BURN_WARN=5 turns \$6/h yellow"   '[ "$(burn_color 5 "")" = $'"'"'\033[33m$6/h'"'"' ]'
+chk "burn: STATUSLINE_BURN_HIGH=5 turns \$6/h red"      '[ "$(burn_color "" 5)" = $'"'"'\033[31m$6/h'"'"' ]'
+chk "burn: invalid values fall back to the defaults"     '[ "$(burn_color abc -1)" = $'"'"'\033[2m$6/h'"'"' ]'
+
 # Re-cache price by model: 5-minute cache-write price from https://platform.claude.com/docs/en/about-claude/pricing
 recache_cost() {   # $1 = model display name, $2 = context tokens
   echo "{\"model\":{\"display_name\":\"$1\"},\"context_window\":{\"context_window_size\":1000000,\"current_usage\":{\"input_tokens\":$2}},\"transcript_path\":\"$TMP/t_old.jsonl\"}" \

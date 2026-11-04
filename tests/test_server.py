@@ -132,7 +132,7 @@ class Content(ServerBase):
     def test_help_documents_what_the_bar_shows(self):
         _, body = self.get(f"/help?t={TOKEN}")
         for item in ("↺HH:MM", "exp HH:MM", "$N/h", "Cache expired", "STATUSLINE_RECACHE_USD_PER_MTOK",
-                     "STATUSLINE_PORT", "✔ clean", "ⓘ help", "--doctor"):
+                     "STATUSLINE_PORT", "STATUSLINE_BURN_WARN", "STATUSLINE_BURN_HIGH", "✔ clean", "ⓘ help", "--doctor"):
             with self.subTest(item=item):
                 self.assertIn(item, body)
 
