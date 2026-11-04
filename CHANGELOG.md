@@ -4,6 +4,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and ver
 Security changes are marked **[security]**.
 
 ## [Unreleased]
+### Changed
+- The prompt cache expiry (`↺HH:MM` / `exp HH:MM`) and the size of the cold-cache warning now use what Claude Code reports (`prompt_cache.expires_at`, `prompt_cache.recache_tokens_if_cold`), so they are exact, also for the 1-hour cache. When Claude Code does not report them the previous estimate (5 minutes after the last transcript write, context size) is used as before. If Claude Code reports that caching is not observed, nothing is shown.
 ### Added
 - Billing mode: the bar tells an API account (the cost is real money) from a subscription (the cost is only the API-equivalent value). It is detected from the usage limits that Claude Code reports, and `STATUSLINE_BILLING=auto|api|subscription` forces it. With a subscription the cost is dimmed with `≈`, has no colors and no `$/h` rate, and the cache warning refers to the usage limit instead of dollars. Documented in the README and the help page, translated in all five languages.
 

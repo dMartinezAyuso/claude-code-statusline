@@ -121,7 +121,7 @@
         ],
         [
           "↺HH:MM",
-          "Uhrzeit, zu der der Prompt-Cache abläuft: 5 Min. nach der letzten Aktivität der Unterhaltung (eine Schätzung, kann um einige Sekunden abweichen). Grün, solange mehr als 1 Min. bleibt, danach gelb."
+          "Uhrzeit, zu der der Prompt-Cache abläuft, wie Claude Code sie meldet (exakt, auch für den 1-Stunden-Cache). Ältere Claude-Code-Versionen melden sie nicht; dann wird sie als 5 Min. nach der letzten Aktivität geschätzt. Grün, solange mehr als 1 Min. bleibt, danach gelb."
         ],
         [
           "abgel. HH:MM",

@@ -121,7 +121,7 @@
         ],
         [
           "↺HH:MM",
-          "Hora em que o cache de prompts expira: 5 min depois da última atividade da conversa (é uma estimativa, pode variar alguns segundos). Verde enquanto falta mais de 1 min, depois amarelo."
+          "Hora em que o cache de prompts expira, conforme informado pelo Claude Code (exata, também para o cache de 1 hora). As versões antigas do Claude Code não a informam, e então é estimada como 5 min depois da última atividade. Verde enquanto falta mais de 1 min, depois amarelo."
         ],
         [
           "exp HH:MM",

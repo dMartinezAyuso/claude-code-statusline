@@ -121,7 +121,7 @@
         ],
         [
           "↺HH:MM",
-          "Time at which the prompt cache expires: 5 min after the last activity in the conversation (an estimate, it can be off by a few seconds). Green while more than 1 min is left, then yellow."
+          "Time at which the prompt cache expires, as reported by Claude Code (exact, also for the 1-hour cache). Older versions of Claude Code do not report it, and then it is estimated as 5 min after the last activity. Green while more than 1 min is left, then yellow."
         ],
         [
           "exp HH:MM",
