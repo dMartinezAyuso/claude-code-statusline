@@ -4,6 +4,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and ver
 Security changes are marked **[security]**.
 
 ## [Unreleased]
+
+## [0.4.0] - 2026-11-04
 ### Security
 - **[security]** The help page no longer needs the token (it is a fixed legend with nothing of yours in it; the `Host` check stays). The links on the parts of the bar and `ⓘ help` carry nothing secret, so hovering over them or a screenshot reveals nothing.
 - **[security]** The links to files carry a short repository id (`r=`) instead of the absolute path (`d=`), so they no longer show your user name or your folders. `d=` is not accepted any more; the `repos` registry now holds `id<TAB>path` lines (old lines are ignored and re-registered).
