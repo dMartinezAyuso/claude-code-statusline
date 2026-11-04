@@ -1,4 +1,5 @@
 """Security and behaviour tests for diffserver.py (standard library only)."""
+import hashlib
 import http.client
 import re
 from html.parser import HTMLParser
@@ -77,11 +78,16 @@ class ServerBase(unittest.TestCase):
             f.write("<script>alert(1)</script>\n")
         cls.register(cls.repo)
 
+    @staticmethod
+    def rid(path):
+        """The short id of a repository, as statusline.sh derives it (any stable short id works for the server)."""
+        return hashlib.sha1(path.encode()).hexdigest()[:10]
+
     @classmethod
     def register(cls, path):
-        """What statusline.sh does: add the repository to the registry the server reads."""
+        """What statusline.sh does: add `id<TAB>path` to the registry the server reads."""
         with open(os.path.join(cls.tmp.name, "state", "repos"), "a") as f:
-            f.write(path + "\n")
+            f.write(f"{cls.rid(path)}\t{path}\n")
 
     @classmethod
     def tearDownClass(cls):
@@ -114,26 +120,26 @@ class Startup(ServerBase):
 
 class Authentication(ServerBase):
     def test_no_token_403(self):
-        self.assertEqual(self.get("/help")[0].status, 403)
+        self.assertEqual(self.get(f"/?r={self.rid(self.repo)}")[0].status, 403)
 
     def test_wrong_token_403(self):
-        self.assertEqual(self.get("/help?t=otro")[0].status, 403)
+        self.assertEqual(self.get(f"/?t=otro&r={self.rid(self.repo)}")[0].status, 403)
 
     def test_empty_token_403(self):
-        self.assertEqual(self.get("/help?t=")[0].status, 403)
+        self.assertEqual(self.get(f"/?t=&r={self.rid(self.repo)}")[0].status, 403)
 
     def test_right_token_200(self):
-        self.assertEqual(self.get(f"/help?t={TOKEN}")[0].status, 200)
+        self.assertEqual(self.get(f"/?t={TOKEN}&r={self.rid(self.repo)}")[0].status, 200)
 
     def test_diff_without_token_leaks_nothing(self):
-        r, body = self.get(f"/?d={self.repo}")
+        r, body = self.get(f"/?r={self.rid(self.repo)}")
         self.assertEqual(r.status, 403)
         self.assertNotIn("two", body)
 
     def test_missing_token_file_always_403(self):
         os.rename(os.path.join(self.tmp.name, "state", "token"), os.path.join(self.tmp.name, "state", "token.bak"))
         try:
-            self.assertEqual(self.get("/help?t=")[0].status, 403)
+            self.assertEqual(self.get(f"/?t=&r={self.rid(self.repo)}")[0].status, 403)
         finally:
             os.rename(os.path.join(self.tmp.name, "state", "token.bak"), os.path.join(self.tmp.name, "state", "token"))
 
@@ -168,18 +174,18 @@ class Content(ServerBase):
                 self.assertIn(item, body)
 
     def test_directory_that_is_not_a_repo_400(self):
-        self.assertEqual(self.get(f"/?t={TOKEN}&d={self.tmp.name}")[0].status, 400)
+        self.assertEqual(self.get(f"/?t={TOKEN}&r={self.rid(self.tmp.name)}")[0].status, 400)
 
     def test_missing_directory_400(self):
-        self.assertEqual(self.get(f"/?t={TOKEN}&d=/no/such/dir")[0].status, 400)
+        self.assertEqual(self.get(f"/?t={TOKEN}&r=doesnotexist")[0].status, 400)
 
     def test_repo_diff_ok(self):
-        r, body = self.get(f"/?t={TOKEN}&d={self.repo}")
+        r, body = self.get(f"/?t={TOKEN}&r={self.rid(self.repo)}")
         self.assertEqual(r.status, 200)
         self.assertIn("two", body)
 
     def test_file_names_are_escaped(self):
-        _, body = self.get(f"/?t={TOKEN}&d={self.repo}")
+        _, body = self.get(f"/?t={TOKEN}&r={self.rid(self.repo)}")
         self.assertNotIn("<img src=x", body)
         self.assertNotIn("<script>alert", body)
         self.assertIn("&lt;img src=x", body)
@@ -189,7 +195,7 @@ class Content(ServerBase):
         with open(big, "w") as f:
             f.write("x" * (self.mod.MAX_DIFF + 4096) + "\n")
         try:
-            r, body = self.get(f"/?t={TOKEN}&d={self.repo}")
+            r, body = self.get(f"/?t={TOKEN}&r={self.rid(self.repo)}")
             self.assertEqual(r.status, 200)
             self.assertIn("diff truncated", body)
         finally:
@@ -243,12 +249,12 @@ class Languages(ServerBase):
 
     def test_diff_page_is_translated_too(self):
         self.set_lang("es")
-        _, body = self.get(f"/?t={TOKEN}&d={self.repo}")
+        _, body = self.get(f"/?t={TOKEN}&r={self.rid(self.repo)}")
         self.assertIn("Cambios · repo", body)
 
     def test_security_behaviour_is_the_same_in_every_language(self):
         self.set_lang("de")
-        self.assertEqual(self.get("/help")[0].status, 403)
+        self.assertEqual(self.get(f"/?r={self.rid(self.repo)}")[0].status, 403)
         self.assertEqual(self.get(f"/help?t={TOKEN}", host="evil.com")[0].status, 403)
 
 
@@ -258,7 +264,7 @@ class CollapsibleDiffPage(ServerBase):
             with open(os.path.join(self.tmp.name, "state", "lang"), "w") as f:
                 f.write(lang)
         try:
-            return self.get(f"/?t={TOKEN}&d={self.repo}")
+            return self.get(f"/?t={TOKEN}&r={self.rid(self.repo)}")
         finally:
             try:
                 os.remove(os.path.join(self.tmp.name, "state", "lang"))
@@ -352,35 +358,54 @@ class RegisteredRepositories(ServerBase):
 
     def test_a_repository_that_was_never_registered_is_refused(self):
         other = self.make_repo("never-registered")
-        r, body = self.get(f"/?t={TOKEN}&d={other}")
+        r, body = self.get(f"/?t={TOKEN}&r={self.rid(other)}")
         self.assertEqual(r.status, 400)
         self.assertNotIn("secret-of-never-registered", body)
 
     def test_a_registered_repository_is_served(self):
         other = self.make_repo("registered-later")
         self.register(other)
-        r, body = self.get(f"/?t={TOKEN}&d={other}")
+        r, body = self.get(f"/?t={TOKEN}&r={self.rid(other)}")
         self.assertEqual(r.status, 200)
         self.assertIn("secret-of-registered-later", body)
 
     def test_the_registry_is_read_on_every_request(self):
         other = self.make_repo("added-while-running")
-        self.assertEqual(self.get(f"/?t={TOKEN}&d={other}")[0].status, 400)
+        self.assertEqual(self.get(f"/?t={TOKEN}&r={self.rid(other)}")[0].status, 400)
         self.register(other)
-        self.assertEqual(self.get(f"/?t={TOKEN}&d={other}")[0].status, 200)
+        self.assertEqual(self.get(f"/?t={TOKEN}&r={self.rid(other)}")[0].status, 200)
 
-    def test_path_tricks_do_not_reach_other_repositories(self):
+    def test_ids_that_are_not_registered_ids_are_refused(self):
         other = self.make_repo("target")
-        sub = os.path.join(self.repo, "..", "target")
-        for d in (sub, other + "/", other + "/.", os.path.join(other, "..", "target"), "~", "/"):
-            with self.subTest(d=d):
-                self.assertEqual(self.get(f"/?t={TOKEN}&d={d}")[0].status, 400)
+        tricks = ("../target", "..", ".", "/", "~", "%2e%2e", "a/b", other, os.path.join(other, ".."), "x" * 200,
+                  self.rid(other).upper(), self.rid(other) + "0", "")
+        for r in tricks:
+            with self.subTest(r=r):
+                self.assertEqual(self.get(f"/?t={TOKEN}&r={r}")[0].status, 400)
+
+    def test_the_old_path_parameter_is_gone(self):
+        # d=<path> used to select the repository; it must not work any more, even for a registered path
+        self.assertEqual(self.get(f"/?t={TOKEN}&d={self.repo}")[0].status, 400)
+
+    def test_old_registry_lines_without_an_id_are_ignored(self):
+        legacy = self.make_repo("legacy")
+        with open(os.path.join(self.tmp.name, "state", "repos"), "a") as f:
+            f.write(legacy + "\n")                 # the old format: just the path
+        self.assertEqual(self.get(f"/?t={TOKEN}&r={self.rid(legacy)}")[0].status, 400)
+
+    def test_the_path_comes_from_the_registry_not_from_the_request(self):
+        a = self.make_repo("path-a")
+        with open(os.path.join(self.tmp.name, "state", "repos"), "a") as f:
+            f.write(f"someid\t{a}\n")
+        r, body = self.get(f"/?t={TOKEN}&r=someid")
+        self.assertEqual(r.status, 200)
+        self.assertIn("secret-of-path-a", body)
 
     def test_without_a_registry_nothing_is_served(self):
         reg = os.path.join(self.tmp.name, "state", "repos")
         os.rename(reg, reg + ".bak")
         try:
-            self.assertEqual(self.get(f"/?t={TOKEN}&d={self.repo}")[0].status, 400)
+            self.assertEqual(self.get(f"/?t={TOKEN}&r={self.rid(self.repo)}")[0].status, 400)
         finally:
             os.rename(reg + ".bak", reg)
 
@@ -388,11 +413,11 @@ class RegisteredRepositories(ServerBase):
         gone = os.path.join(self.tmp.name, "gone")
         os.makedirs(gone)          # registered but never a git repository
         self.register(gone)
-        self.assertEqual(self.get(f"/?t={TOKEN}&d={gone}")[0].status, 400)
+        self.assertEqual(self.get(f"/?t={TOKEN}&r={self.rid(gone)}")[0].status, 400)
 
     def test_the_token_is_still_required_for_a_registered_repository(self):
-        self.assertEqual(self.get(f"/?d={self.repo}")[0].status, 403)
-        self.assertEqual(self.get(f"/?t={TOKEN}&d={self.repo}", host="evil.com")[0].status, 403)
+        self.assertEqual(self.get(f"/?r={self.rid(self.repo)}")[0].status, 403)
+        self.assertEqual(self.get(f"/?t={TOKEN}&r={self.rid(self.repo)}", host="evil.com")[0].status, 403)
 
 
 class LegendAnchors(ServerBase):
@@ -429,6 +454,36 @@ class LegendAnchors(ServerBase):
 
     def test_the_intro_explains_the_links(self):
         self.assertIn("Cmd+click", self.help_page().split("<section>")[0])
+
+
+class TokenlessHelp(ServerBase):
+    """/help is a fixed legend with no data of yours, so the links to it carry no secret."""
+    def test_help_needs_no_token(self):
+        self.assertEqual(self.get("/help")[0].status, 200)
+
+    def test_a_wrong_token_does_not_matter_for_help(self):
+        self.assertEqual(self.get("/help?t=anything")[0].status, 200)
+
+    def test_help_keeps_the_host_check(self):
+        for host in ("evil.com", f"evil.com:{self.port}", f"127.0.0.1.evil.com:{self.port}", ""):
+            with self.subTest(host=host):
+                self.assertEqual(self.get("/help", host=host)[0].status, 403)
+
+    def test_help_keeps_the_security_headers(self):
+        r, _ = self.get("/help")
+        self.assertIn("default-src 'none'", r.getheader("Content-Security-Policy"))
+        self.assertEqual(r.getheader("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(r.getheader("Cache-Control"), "no-store")
+
+    def test_help_contains_no_secret(self):
+        _, body = self.get("/help")
+        self.assertNotIn(TOKEN, body)
+        self.assertNotIn(self.tmp.name, body)
+
+    def test_everything_else_still_needs_the_token(self):
+        for path in ("/", f"/?r={self.rid(self.repo)}", "/help/", "/helpx", "/help/../", "/index.html"):
+            with self.subTest(path=path):
+                self.assertEqual(self.get(path)[0].status, 403)
 
 
 if __name__ == "__main__":

@@ -238,7 +238,7 @@
         ],
         [
           "Enlaces y token",
-          "Los enlaces llevan un token secreto. No los compartas ni los pegues en capturas. Si uno deja de funcionar (403), haz clic en un enlace nuevo de la barra.",
+          "Los enlaces a ficheros llevan un token secreto y el identificador corto del repositorio; los enlaces a esta página de ayuda no llevan nada secreto. No compartas los enlaces a ficheros ni los pegues en capturas. Si uno deja de funcionar (403), el token se ha renovado: haz clic en un enlace nuevo de la barra.",
           "links-token"
         ],
         [
@@ -275,6 +275,16 @@
           "STATUSLINE_LINKS",
           "on (por defecto) u off. Con on, Cmd+clic en una parte de la barra (contexto, límites, coste, caché, contadores de ficheros…) abre esta página en su explicación. Con off solo queda el enlace ⓘ ayuda.",
           "setting-links"
+        ],
+        [
+          "STATUSLINE_TOKEN_TTL_HOURS",
+          "Horas tras las cuales el token secreto de los enlaces a ficheros se sustituye por uno nuevo (por defecto 24, 0 = nunca). Un enlace copiado o fotografiado deja de funcionar pasado ese tiempo.",
+          "setting-token-ttl"
+        ],
+        [
+          "statusline.sh --private on",
+          "Quita todos los enlaces de la barra hasta que ejecutes --private off (un 🔒 indica que está activo). Úsalo antes de compartir pantalla. --private status indica el estado actual.",
+          "private-mode"
         ],
         [
           "Problemas",

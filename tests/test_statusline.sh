@@ -1,5 +1,6 @@
 #!/bin/bash
 # shellcheck disable=SC2034  # the variables are used inside the strings that chk() evaluates
+# shellcheck disable=SC2163  # the helpers export "$kv", an assignment like VAR=value, on purpose
 # Integration test of statusline.sh: it draws, creates the token with safe permissions and
 # restarts the server when its code changes. Uses a temporary state and port.
 set -u
@@ -40,22 +41,25 @@ chk "state folder has 700 permissions" '[ "$perm_d" = 700 ]'
 wait_server
 # Repositories: the bar registers the ones it is used in, and the server serves only those
 top_repo=$(git -C "$TMP/repo" rev-parse --show-toplevel)
-chk "the bar registers the repository it runs in"      '[ "$(cat "$STATE/repos" 2>/dev/null)" = "$top_repo" ]'
+chk "the bar registers the repository it runs in (id and path)" '[ "$(awk -F"\t" -v p="$top_repo" '"'"'$2==p && $1 ~ /^[0-9]+$/'"'"' "$STATE/repos" | wc -l | tr -d " ")" = 1 ]'
+repo_id=$(cut -f1 "$STATE/repos" | head -1)
 echo "$JSON" | timeout_run "$TMP/statusline.sh" >/dev/null 2>&1
 chk "and registers it only once"                       '[ "$(grep -c . "$STATE/repos")" = 1 ]'
 perm_r=$(stat -c %a "$STATE/repos" 2>/dev/null || stat -f %Lp "$STATE/repos")
 chk "the registry has 600 permissions"                 '[ "$perm_r" = 600 ]'
 git init -q "$TMP/unregistered" && echo secret >"$TMP/unregistered/s.txt"
 wait_server
-chk "the server serves the registered repository"      '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/?t=$(cat "$STATE/token")&d=$top_repo")" = 200 ]'
-chk "and refuses one the bar was never used in"        '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/?t=$(cat "$STATE/token")&d=$TMP/unregistered")" = 400 ]'
+chk "the server serves the registered repository"      '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/?t=$(cat "$STATE/token")&r=$repo_id")" = 200 ]'
+chk "and refuses an id the bar never registered"        '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/?t=$(cat "$STATE/token")&r=123456")" = 400 ]'
+chk "and no longer accepts a path (d=) at all"          '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/?t=$(cat "$STATE/token")&d=$top_repo")" = 400 ]'
 nl_dir="$TMP/with
 newline"; git init -q "$nl_dir"; echo x >"$nl_dir/f.txt"
 echo "{\"model\":{\"display_name\":\"M\"},\"workspace\":{\"current_dir\":\"$nl_dir\"}}" | timeout_run "$TMP/statusline.sh" >/dev/null 2>&1
 chk "a path with a newline is never registered"        '[ "$(grep -c . "$STATE/repos")" = 1 ]'
 
-chk "the server answers 403 without a token" '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/help")" = 403 ]'
-chk "the server answers 200 with a token" '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/help?t=$(cat "$STATE/token")")" = 200 ]'
+chk "the server answers 403 without a token" '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/?r=$repo_id")" = 403 ]'
+chk "the server answers 200 with a token" '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/?t=$(cat "$STATE/token")&r=$repo_id")" = 200 ]'
+chk "the help page needs no token"        '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/help")" = 200 ]'
 
 pid1=$(cat "$STATE/server.pid")
 echo "$JSON" | timeout_run "$TMP/statusline.sh" >/dev/null 2>&1; sleep 0.5
@@ -231,7 +235,7 @@ d=$(files_out STATUSLINE_LANG=es)
 chk "the 'more' text is translated"                   '[[ "$d" == *"+15 más"* ]]'
 raw=$(echo "$BIG" | timeout_run "$TMP/statusline.sh" 2>/dev/null)
 more_url=$(printf '%s' "$raw" | perl -ne 'print $1 if /\e\]8;;([^\a]*)\a(?:\e\[[0-9;]*m)*\+15 more/')
-chk "the 'more' link opens the full page (no anchor)" '[[ "$more_url" == http://127.0.0.1:*"/?t="*"&d="* && "$more_url" != *"#"* ]]'
+chk "the 'more' link opens the full page (no anchor)" '[[ "$more_url" == http://127.0.0.1:*"/?t="*"&r="* && "$more_url" != *"#"* && "$more_url" != *"$TMP"* ]]'
 # Mixed statuses in count mode: M A D ? in this order, each with its number
 git init -q "$TMP/mix" && G2=(git -C "$TMP/mix" -c user.email=t@e.c -c user.name=t)
 for n in a b c; do echo "$n" >"$TMP/mix/$n.txt"; done; "${G2[@]}" add -A; "${G2[@]}" commit -qm base
@@ -247,7 +251,7 @@ link_raw() { echo "$LINKJSON" | ( for kv in "$@"; do export "$kv"; done; timeout
 # the URL of the OSC 8 link that wraps a given text
 url_of() { perl -ne 'print $1 if /\e\]8;;([^\a]*)\a(?:\e\[[0-9;]*m)*'"$1"'/' ; }
 raw=$(link_raw STATUSLINE_BILLING=api)
-chk "ctx links to its row"                    '[[ "$(printf "%s" "$raw" | url_of "ctx")" == *"/help?t="*"#ctx" ]]'
+chk "ctx links to its row"                    '[[ "$(printf "%s" "$raw" | url_of "ctx")" == http://127.0.0.1:*"/help#ctx" ]]'
 chk "5h links to its row"                     '[[ "$(printf "%s" "$raw" | url_of "5h")" == *"#limit-5h" ]]'
 chk "7d links to its row"                     '[[ "$(printf "%s" "$raw" | url_of "7d")" == *"#limit-7d" ]]'
 chk "the cost links to its row"               '[[ "$(printf "%s" "$raw" | url_of "\\\$3\\.00")" == *"#cost" ]]'
@@ -260,11 +264,55 @@ chk "the changed lines link to their row"     '[[ "$(printf "%s" "$raw" | url_of
 chk "the staged counter links to its row"     '[[ "$(printf "%s" "$raw" | url_of "●")" == *"#staged" ]]'
 chk "the untracked counter links to its row"  '[[ "$(printf "%s" "$raw" | url_of "\\?")" == *"#untracked" ]]'
 chk "the subscription cost links to its row"  '[[ "$(link_raw STATUSLINE_BILLING=subscription | url_of "≈")" == *"#cost-subscription" ]]'
-chk "every link carries the token"            '[ "$(printf "%s" "$raw" | grep -o "/help?t=[0-9a-f]*#" | grep -vc "t=$(cat "$STATE/token")#")" = 0 ]'
+chk "the help links carry no token"           '[ "$(printf "%s" "$raw" | grep -c "/help?t=")" = 0 ]'
+chk "the links to files still carry it"       'printf "%s" "$raw" | grep -q "/?t=$(cat "$STATE/token")&r="'
+chk "no link shows the path of the repository" '! printf "%s" "$raw" | grep -qF "$TMP"'
 off=$(link_raw STATUSLINE_LINKS=off)
-chk "STATUSLINE_LINKS=off removes the segment links" '! printf "%s" "$off" | grep -q "/help?t=[0-9a-f]*#"'
-chk "but keeps the ⓘ help link"                      '[[ "$(printf "%s" "$off" | url_of " ⓘ help")" == *"/help?t="* && "$(printf "%s" "$off" | url_of " ⓘ help")" != *"#"* ]]'
+chk "STATUSLINE_LINKS=off removes the segment links" '! printf "%s" "$off" | grep -q "/help#"'
+chk "but keeps the ⓘ help link"                      '[[ "$(printf "%s" "$off" | url_of " ⓘ help")" == http://127.0.0.1:*"/help" ]]'
 chk "links never change the visible text"            '[ "$(printf "%s" "$raw" | plain)" = "$(link_raw STATUSLINE_BILLING=api STATUSLINE_LINKS=off | plain)" ]'
+
+# Token rotation: STATUSLINE_TOKEN_TTL_HOURS (default 24, 0 = never); the server reads the token on every request
+rot() { echo "$JSON" | ( for kv in "$@"; do export "$kv"; done; timeout_run "$TMP/statusline.sh" ) >/dev/null 2>&1; }
+old_ts=200001010000
+tok0=$(cat "$STATE/token"); rot
+chk "a fresh token is kept"                           '[ "$(cat "$STATE/token")" = "$tok0" ]'
+touch -t $old_ts "$STATE/token"; rot STATUSLINE_TOKEN_TTL_HOURS=0
+chk "TTL 0 never rotates the token"                   '[ "$(cat "$STATE/token")" = "$tok0" ]'
+touch -t $old_ts "$STATE/token"; rot
+chk "a token older than 24 h is replaced by default"  '[ "$(cat "$STATE/token")" != "$tok0" ] && [ "$(wc -c <"$STATE/token" | tr -d " ")" = 32 ]'
+tok1=$(cat "$STATE/token"); touch -t $old_ts "$STATE/token"; rot STATUSLINE_TOKEN_TTL_HOURS=abc
+chk "an invalid TTL falls back to 24 h"               '[ "$(cat "$STATE/token")" != "$tok1" ]'
+tok2=$(cat "$STATE/token"); touch -t $old_ts "$STATE/token"; rot STATUSLINE_TOKEN_TTL_HOURS=1
+perm_t=$(stat -c %a "$STATE/token" 2>/dev/null || stat -f %Lp "$STATE/token")
+chk "the rotated token keeps 600 permissions"         '[ "$perm_t" = 600 ] && [ "$(cat "$STATE/token")" != "$tok2" ]'
+tok3=$(cat "$STATE/token"); wait_server
+chk "the server accepts the new token"                '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/?t=$tok3&r=$repo_id")" = 200 ]'
+chk "and refuses the old one"                         '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/?t=$tok2&r=$repo_id")" = 403 ]'
+
+# Two repositories with the same short id get different ids
+git init -q "$TMP/clash" && echo x >"$TMP/clash/c.txt"; top_clash=$(git -C "$TMP/clash" rev-parse --show-toplevel)
+id_clash=$(printf '%s' "$top_clash" | cksum | cut -d' ' -f1)
+printf '%s\t%s\n' "$id_clash" "/somewhere/else" >>"$STATE/repos"
+echo "{\"model\":{\"display_name\":\"M\"},\"workspace\":{\"current_dir\":\"$TMP/clash\"}}" | timeout_run "$TMP/statusline.sh" >/dev/null 2>&1
+mine=$(awk -F'\t' -v p="$top_clash" '$2==p {print $1}' "$STATE/repos")
+chk "a repository whose id is taken gets another id"  '[ -n "$mine" ] && [ "$mine" != "$id_clash" ]'
+chk "and the other repository keeps its id"           '[ "$(awk -F"\t" -v i="$id_clash" '"'"'$1==i {print $2}'"'"' "$STATE/repos")" = "/somewhere/else" ]'
+
+# Private mode: ./statusline.sh --private on|off|status removes every link, for screen sharing
+chk "--private status starts off"                     '[ "$("$TMP/statusline.sh" --private status)" = "private: off" ]'
+ref_text=$(link_raw STATUSLINE_LINKS=off | plain)   # the text without links, taken before private mode is on
+"$TMP/statusline.sh" --private on >/dev/null
+chk "--private on creates the flag"                   '[ "$("$TMP/statusline.sh" --private status)" = "private: on" ] && [ -f "$STATE/private" ]'
+priv=$(link_raw)
+chk "private mode: there is no link at all"           '! printf "%s" "$priv" | grep -q $'"'"'\033]8;;'"'"
+chk "private mode: a lock shows that it is on"        '[[ "$(printf "%s" "$priv" | plain)" == *"🔒"* ]]'
+chk "private mode: the rest of the text is unchanged" '[ "$(printf "%s" "$priv" | plain | sed "s/ 🔒//")" = "$ref_text" ]'
+chk "private mode: even the file links are plain"     '! printf "%s" "$(echo "$BIG" | timeout_run "$TMP/statusline.sh" 2>/dev/null)" | grep -q $'"'"'\033]8;;'"'"
+chk "--doctor tells whether private mode is on"       '"$TMP/statusline.sh" --doctor | grep -q "private: *on"'
+"$TMP/statusline.sh" --private off >/dev/null
+chk "--private off brings the links back"             '[ ! -f "$STATE/private" ] && printf "%s" "$(link_raw)" | grep -q $'"'"'\033]8;;'"'"
+chk "--private rejects anything else"                 '! "$TMP/statusline.sh" --private maybe >/dev/null 2>&1'
 
 chk "--version works"  '"$TMP/statusline.sh" --version | grep -q "^claude-code-statusline [0-9]"'
 chk "--doctor works"   '"$TMP/statusline.sh" --doctor >/dev/null'

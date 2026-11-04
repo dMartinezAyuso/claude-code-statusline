@@ -238,7 +238,7 @@
         ],
         [
           "Liens et token",
-          "Les liens contiennent un token secret. Ne les partagez pas et ne les collez pas dans des captures d'écran. Si un lien cesse de fonctionner (403), cliquez sur un lien récent de la barre.",
+          "Les liens vers les fichiers contiennent un token secret et l'identifiant court du dépôt ; les liens vers cette page d'aide ne contiennent rien de secret. Ne partagez pas les liens vers les fichiers et ne les collez pas dans des captures d'écran. Si l'un d'eux cesse de fonctionner (403), le token a été renouvelé : cliquez sur un lien récent de la barre.",
           "links-token"
         ],
         [
@@ -275,6 +275,16 @@
           "STATUSLINE_LINKS",
           "on (par défaut) ou off. Avec on, Cmd+clic sur un élément de la barre (contexte, limites, coût, cache, compteurs de fichiers…) ouvre cette page à son explication. Avec off, il ne reste que le lien ⓘ aide.",
           "setting-links"
+        ],
+        [
+          "STATUSLINE_TOKEN_TTL_HOURS",
+          "Nombre d'heures après lequel le token secret des liens vers les fichiers est remplacé par un nouveau (24 par défaut, 0 = jamais). Un lien copié ou photographié cesse de fonctionner passé ce délai.",
+          "setting-token-ttl"
+        ],
+        [
+          "statusline.sh --private on",
+          "Supprime tous les liens de la barre jusqu'à --private off (un 🔒 indique qu'il est actif). Utilisez-le avant de partager votre écran. --private status indique l'état actuel.",
+          "private-mode"
         ],
         [
           "Problèmes",

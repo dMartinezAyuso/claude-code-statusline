@@ -238,7 +238,7 @@
         ],
         [
           "Links und Token",
-          "Links enthalten ein geheimes Token. Teile sie nicht und füge sie nicht in Screenshots ein. Wenn einer nicht mehr funktioniert (403), klicke auf einen aktuellen Link in der Leiste.",
+          "Links zu Dateien enthalten ein geheimes Token und die kurze Kennung des Repositories; Links zu dieser Hilfeseite enthalten nichts Geheimes. Teile die Datei-Links nicht und füge sie nicht in Screenshots ein. Wenn einer nicht mehr funktioniert (403), wurde das Token erneuert: Klicke auf einen aktuellen Link in der Leiste.",
           "links-token"
         ],
         [
@@ -275,6 +275,16 @@
           "STATUSLINE_LINKS",
           "on (Standard) oder off. Mit on öffnet Cmd+Klick auf einen Teil der Leiste (Kontext, Limits, Kosten, Cache, Dateizähler …) diese Seite bei der passenden Erklärung. Mit off bleibt nur der Link ⓘ Hilfe.",
           "setting-links"
+        ],
+        [
+          "STATUSLINE_TOKEN_TTL_HOURS",
+          "Stunden, nach denen das geheime Token der Datei-Links durch ein neues ersetzt wird (Standard 24, 0 = nie). Ein kopierter oder fotografierter Link funktioniert danach nicht mehr.",
+          "setting-token-ttl"
+        ],
+        [
+          "statusline.sh --private on",
+          "Entfernt alle Links aus der Leiste, bis du --private off ausführst (ein 🔒 zeigt, dass es aktiv ist). Nutze es, bevor du den Bildschirm teilst. --private status zeigt den aktuellen Zustand.",
+          "private-mode"
         ],
         [
           "Probleme",
