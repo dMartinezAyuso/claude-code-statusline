@@ -1,0 +1,211 @@
+{
+  "bar": {
+    "cache": "cache",
+    "clean": "✔ propre",
+    "help": "ⓘ aide",
+    "now": "déjà",
+    "exp": "exp",
+    "warn": "Cache expiré : le prochain prompt recrée {tokens} ≈ {cost} → /compact"
+  },
+  "page": {
+    "title": "Aide · barre d'état",
+    "intro": "Ce que signifie chaque élément de la barre d'état de Claude Code."
+  },
+  "diff": {
+    "title": "Modifications · {repo} ({count})",
+    "none": "Aucune modification par rapport à HEAD.",
+    "no_text": "(aucune modification de texte)",
+    "truncated": "... diff tronqué (plus de {kib} Kio)"
+  },
+  "sections": [
+    {
+      "title": "Ligne 1 · modèle et git",
+      "rows": [
+        [
+          "Modèle (effort)",
+          "Modèle actif et, entre parenthèses, le niveau d'effort de raisonnement."
+        ],
+        [
+          "⚡",
+          "Mode rapide activé."
+        ],
+        [
+          "🤖 nom",
+          "Vous êtes dans un agent précis."
+        ],
+        [
+          "projet",
+          "Dossier de travail actuel."
+        ],
+        [
+          "⎇ branche",
+          "Branche git actuelle."
+        ],
+        [
+          "↑N",
+          "Commits locaux que vous n'avez pas encore poussés (push)."
+        ],
+        [
+          "↓N",
+          "Commits distants que vous n'avez pas encore récupérés (pull)."
+        ],
+        [
+          "●N",
+          "Fichiers prêts à être commités (staged)."
+        ],
+        [
+          "✚N",
+          "Fichiers modifiés non préparés."
+        ],
+        [
+          "?N",
+          "Nouveaux fichiers non suivis."
+        ],
+        [
+          "✖N",
+          "Fichiers en conflit de merge."
+        ],
+        [
+          "✔ propre",
+          "Aucune modification en attente."
+        ],
+        [
+          "PR #N",
+          "Pull request de la branche. Vert = approuvée, rouge = modifications demandées, jaune = en attente."
+        ],
+        [
+          "NORMAL / INSERT",
+          "Mode vim du prompt de Claude Code, si le mode vim est activé."
+        ],
+        [
+          "ⓘ aide",
+          "Cette page."
+        ]
+      ]
+    },
+    {
+      "title": "Ligne 2 · consommation",
+      "rows": [
+        [
+          "ctx ███░░ N%",
+          "Taux de remplissage du contexte de la conversation, avec les tokens utilisés/totaux. Vert < 50 %, jaune < 80 %, rouge à partir de 80 %. Quand il devient rouge, lancez /compact ou /clear."
+        ],
+        [
+          "5h ███░░ N% ↻",
+          "Utilisation de la limite de 5 heures de votre abonnement et compte à rebours avant son renouvellement (↻déjà = déjà renouvelée). Mêmes couleurs que ctx."
+        ],
+        [
+          "7d ███░░ N% ↻",
+          "Utilisation de la limite hebdomadaire et compte à rebours avant son renouvellement. Mêmes couleurs que ctx."
+        ],
+        [
+          "$N.NN",
+          "Coût de la session. Vert < 1 $, jaune < 5 $, rouge à partir de 5 $."
+        ],
+        [
+          "$N/h",
+          "Rythme de dépense par heure, affiché après 5 min de session. Gris sous STATUSLINE_BURN_WARN (15 $/h par défaut), jaune à partir de là, rouge à partir de STATUSLINE_BURN_HIGH (30 $/h par défaut)."
+        ],
+        [
+          "cache N%",
+          "Part du prompt servie depuis le cache de prompts, moins cher. Vert ≥ 70 %, jaune ≥ 40 %, rouge en dessous."
+        ],
+        [
+          "↺HH:MM",
+          "Heure à laquelle le cache de prompts expire : 5 min après la dernière activité de la conversation (estimation, peut varier de quelques secondes). Vert tant qu'il reste plus d'1 min, puis jaune."
+        ],
+        [
+          "exp HH:MM",
+          "En rouge : le cache de prompts a expiré à cette heure. Le prochain prompt devra le reconstruire, ce qui coûte plus cher (voir la ligne d'avertissement)."
+        ],
+        [
+          "↓N ↑N",
+          "Tokens cumulés : ↓ lus (entrée) et ↑ écrits (sortie)."
+        ],
+        [
+          "⏱",
+          "Durée de la session."
+        ],
+        [
+          "+N -N",
+          "Lignes de code ajoutées (vert) et supprimées (rouge) pendant la session."
+        ]
+      ]
+    },
+    {
+      "title": "Ligne d'avertissement · seulement si nécessaire",
+      "rows": [
+        [
+          "Cache expiré : …",
+          "Apparaît entre les lignes 2 et 3 quand le cache a expiré et que le contexte est grand (≥ 50k tokens). Le prochain prompt le recréera en entier ; le coût estimé est affiché. Lancer /compact avant le réduit."
+        ]
+      ]
+    },
+    {
+      "title": "Ligne 3 · fichiers modifiés",
+      "rows": [
+        [
+          "Δ",
+          "Liste de tous les fichiers modifiés par rapport à HEAD. Cmd+clic sur l'un d'eux pour voir son diff dans le navigateur."
+        ],
+        [
+          "M",
+          "Modifié."
+        ],
+        [
+          "A",
+          "Ajouté (staged)."
+        ],
+        [
+          "D",
+          "Supprimé."
+        ],
+        [
+          "R",
+          "Renommé."
+        ],
+        [
+          "U",
+          "Conflit."
+        ],
+        [
+          "?",
+          "Nouveau, non suivi."
+        ]
+      ]
+    },
+    {
+      "title": "Bon à savoir",
+      "rows": [
+        [
+          "Éléments absents",
+          "Ce que Claude Code ne communique pas (par exemple les limites 5h/7d sans abonnement) n'est simplement pas affiché."
+        ],
+        [
+          "Liens et token",
+          "Les liens contiennent un token secret. Ne les partagez pas et ne les collez pas dans des captures d'écran. Si un lien cesse de fonctionner (403), cliquez sur un lien récent de la barre."
+        ],
+        [
+          "STATUSLINE_PORT",
+          "Port de ce serveur local (8765 par défaut)."
+        ],
+        [
+          "STATUSLINE_BURN_WARN / STATUSLINE_BURN_HIGH",
+          "Rythme de dépense en USD par heure à partir duquel $N/h passe au jaune / rouge (15 et 30 par défaut ; valeurs arbitraires, réglez ce qui est beaucoup pour vous)."
+        ],
+        [
+          "STATUSLINE_RECACHE_USD_PER_MTOK",
+          "Prix par million de tokens pour estimer le coût de recréation du cache. Par défaut, le prix d'écriture de cache de 5 minutes du modèle actif d'après la page tarifaire d'Anthropic (platform.claude.com/docs/en/about-claude/pricing)."
+        ],
+        [
+          "STATUSLINE_LANG",
+          "Langue de la barre et de cette page : en, es, fr, pt ou de. Elle est choisie lors de l'exécution de install.sh ; changez-la avec ./install.sh --lang fr, ou forcez-en une autre avec cette variable."
+        ],
+        [
+          "Problèmes",
+          "Lancez ./statusline.sh --doctor dans le dossier d'installation : il vérifie les dépendances et affiche la version et le dossier d'état."
+        ]
+      ]
+    }
+  ]
+}

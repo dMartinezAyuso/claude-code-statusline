@@ -3,7 +3,9 @@
 of a git repo. Usage: http://127.0.0.1:8765/?t=<token>&d=<repo path>#<file>"""
 import hmac
 import html
+import json
 import os
+import re
 import subprocess
 import socketserver
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -78,71 +80,65 @@ def render(text):
     return "".join(out)
 
 
-# Status bar legend: (symbol, meaning). Rendered at /help. Keep it in sync with statusline.sh.
-HELP = [
-    ("Line 1 · model and git", [
-        ("Model (effort)", "Active model and, in parentheses, the reasoning effort level."),
-        ("⚡", "Fast mode on."),
-        ("🤖 name", "You are inside a specific agent."),
-        ("project", "Current working folder."),
-        ("⎇ branch", "Current git branch."),
-        ("↑N", "Local commits you have not pushed yet."),
-        ("↓N", "Remote commits you have not pulled yet."),
-        ("●N", "Files staged for commit."),
-        ("✚N", "Modified files that are not staged."),
-        ("?N", "New untracked files."),
-        ("✖N", "Files with a merge conflict."),
-        ("✔ clean", "No pending changes."),
-        ("PR #N", "The branch's pull request. Green = approved, red = changes requested, yellow = pending."),
-        ("NORMAL / INSERT", "Vim mode of the Claude Code prompt, when vim mode is enabled."),
-        ("ⓘ help", "This page."),
-    ]),
-    ("Line 2 · usage", [
-        ("ctx ███░░ N%", "How full the conversation context is, with tokens used/total. Green < 50%, yellow < 80%, red from 80%. When it gets red, run /compact or /clear."),
-        ("5h ███░░ N% ↻", "Usage of your subscription's 5-hour limit and countdown until it resets (↻now = already reset). Same colors as ctx."),
-        ("7d ███░░ N% ↻", "Usage of the weekly limit and countdown until it resets. Same colors as ctx."),
-        ("$N.NN", "Session cost. Green < $1, yellow < $5, red from $5."),
-        ("$N/h", "Spend rate per hour, shown after 5 min of session. Grey below STATUSLINE_BURN_WARN (default $15/h), yellow from there, red from STATUSLINE_BURN_HIGH (default $30/h)."),
-        ("cache N%", "Share of the prompt that was served from the prompt cache, which is cheaper. Green ≥ 70%, yellow ≥ 40%, red below."),
-        ("↺HH:MM", "Time at which the prompt cache expires: 5 min after the last activity in the conversation (an estimate, it can be off by a few seconds). Green while more than 1 min is left, then yellow."),
-        ("exp HH:MM", "In red: the prompt cache expired at that time. The next prompt has to rebuild it, which costs more (see the warning line)."),
-        ("↓N ↑N", "Accumulated tokens: ↓ read (input) and ↑ written (output)."),
-        ("⏱", "Session duration."),
-        ("+N -N", "Lines of code added (green) and deleted (red) in the session."),
-    ]),
-    ("Warning line · only when needed", [
-        ("Cache expired: …", "Appears between lines 2 and 3 when the cache has expired and the context is large (≥ 50k tokens). The next prompt will re-cache all of it; it shows the estimated cost. Running /compact first makes that cheaper."),
-    ]),
-    ("Line 3 · changed files", [
-        ("Δ", "List of every file changed against HEAD. Cmd+click one to see its diff in the browser."),
-        ("M", "Modified."),
-        ("A", "Added (staged)."),
-        ("D", "Deleted."),
-        ("R", "Renamed."),
-        ("U", "Conflict."),
-        ("?", "New, untracked."),
-    ]),
-    ("Good to know", [
-        ("Missing items", "Anything Claude Code does not report (for example the 5h/7d limits without a subscription) is simply not shown."),
-        ("Links and the token", "Links carry a secret token. Do not share them or paste them in screenshots. If one stops working (403), click a fresh link from the bar."),
-        ("STATUSLINE_PORT", "Port of this local server (default 8765)."),
-        ("STATUSLINE_BURN_WARN / STATUSLINE_BURN_HIGH", "Spend rate in USD per hour from which $N/h turns yellow / red (defaults 15 and 30, arbitrary: set what is a lot for you)."),
-        ("STATUSLINE_RECACHE_USD_PER_MTOK", "Price per million tokens used to estimate the re-cache cost. By default the 5-minute cache-write price of the active model from Anthropic's pricing page (platform.claude.com/docs/en/about-claude/pricing)."),
-        ("Problems", "Run ./statusline.sh --doctor in the install folder; it checks the dependencies and prints the version and state folder."),
-    ]),
-]
+LANG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lang")
+
+
+def _read_lang(code):
+    try:
+        with open(os.path.join(LANG_DIR, f"{code}.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def current_lang():
+    """Language code: STATUSLINE_LANG, then the `lang` file of the state folder, then English.
+    Anything that is not the code of an existing language file falls back to English."""
+    code = os.environ.get("STATUSLINE_LANG", "")
+    if not code:
+        try:
+            with open(os.path.join(STATE, "lang")) as f:
+                code = f.read()
+        except OSError:
+            code = ""
+    code = code.strip().lower()[:2]
+    if re.fullmatch(r"[a-z]{2}", code) and os.path.isfile(os.path.join(LANG_DIR, f"{code}.json")):
+        return code
+    return "en"
+
+
+# Used only if lang/en.json is missing or broken, so the server still answers
+_FALLBACK = {"bar": {}, "sections": [],
+             "page": {"title": "Help", "intro": "Language files are missing."},
+             "diff": {"title": "Changes · {repo} ({count})", "none": "No changes against HEAD.",
+                      "no_text": "(no text changes)", "truncated": "... diff truncated (more than {kib} KiB)"}}
+
+
+def strings():
+    """Texts in the current language. English is the base: a missing key or a legend whose shape
+    differs from the English one (tests prevent that) is taken from English."""
+    base = _read_lang("en") or _FALLBACK
+    code = current_lang()
+    lang = _read_lang(code) if code != "en" else None
+    if not lang:
+        return base
+    out = {g: {**base.get(g, {}), **lang.get(g, {})} for g in ("bar", "page", "diff")}
+    same_shape = [len(x["rows"]) for x in lang.get("sections", [])] == [len(x["rows"]) for x in base["sections"]]
+    out["sections"] = lang["sections"] if same_shape else base["sections"]
+    return out
 
 
 def help_page():
+    t = strings()
     body = ""
-    for title, rows in HELP:
-        trs = "".join(f"<tr><td class=k>{html.escape(k)}</td><td>{html.escape(v)}</td></tr>" for k, v in rows)
-        body += f"<section><h2>{html.escape(title)}</h2><table>{trs}</table></section>"
+    for section in t["sections"]:
+        trs = "".join(f"<tr><td class=k>{html.escape(k)}</td><td>{html.escape(v)}</td></tr>" for k, v in section["rows"])
+        body += f"<section><h2>{html.escape(section['title'])}</h2><table>{trs}</table></section>"
     extra = ("table{border-collapse:collapse;width:100%}td{padding:5px 12px;border-top:1px solid var(--bd);vertical-align:top}"
              ".k{white-space:nowrap;font-weight:600;width:1%}")
-    return ("<!doctype html><meta charset=utf-8><title>Help · status bar</title>"
+    return (f"<!doctype html><meta charset=utf-8><title>{html.escape(t['page']['title'])}</title>"
             f"<style>{CSS}{extra}section{{scroll-margin-top:0}}</style>"
-            "<p style='margin:16px'>What each part of the Claude Code status bar means.</p>" + body +
+            f"<p style='margin:16px'>{html.escape(t['page']['intro'])}</p>" + body +
             f"<p style='margin:16px' class=m>claude-code-statusline v{html.escape(VERSION)}</p>")
 
 
@@ -152,17 +148,18 @@ def diff_page(repo):
         status, f = ln[:2], ln[3:].split(" -> ")[-1].strip('"')
         files.append((status, f))
     files.sort(key=lambda x: x[1])
+    t = strings()["diff"]
     nav = "".join(f'<a href="#{html.escape(f, quote=True)}">{html.escape(f)}</a>' for _, f in files)
     body = ""
     for status, f in files:
         d = file_diff(repo, status, f)
         if len(d) > MAX_DIFF:
-            d = d[:MAX_DIFF] + f"\n... diff truncated (more than {MAX_DIFF // 1024} KiB)\n"
+            d = d[:MAX_DIFF] + "\n" + t["truncated"].format(kib=MAX_DIFF // 1024) + "\n"
         body += (f'<section id="{html.escape(f, quote=True)}"><h2>{html.escape(status.strip() or "M")} '
-                 f'{html.escape(f)}</h2><pre>{render(d) if d.strip() else "<span class=l>(no text changes)</span>"}</pre></section>')
+                 f'{html.escape(f)}</h2><pre>{render(d) if d.strip() else "<span class=l>" + html.escape(t["no_text"]) + "</span>"}</pre></section>')
     if not files:
-        body = "<p style='margin:16px'>No changes against HEAD.</p>"
-    title = f"Changes · {os.path.basename(repo)} ({len(files)})"
+        body = f"<p style='margin:16px'>{html.escape(t['none'])}</p>"
+    title = t["title"].format(repo=os.path.basename(repo), count=len(files))
     return (f"<!doctype html><meta charset=utf-8><title>{html.escape(title)}</title>"
             f"<style>{CSS}</style><nav>{nav}</nav>{body}")
 

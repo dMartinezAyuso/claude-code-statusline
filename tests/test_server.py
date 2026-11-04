@@ -165,5 +165,61 @@ class Content(ServerBase):
             os.remove(big)
 
 
+class Languages(ServerBase):
+    def set_lang(self, code):
+        path = os.path.join(self.tmp.name, "state", "lang")
+        if code is None:
+            if os.path.exists(path):
+                os.remove(path)
+        else:
+            with open(path, "w") as f:
+                f.write(code)
+
+    def tearDown(self):
+        self.set_lang(None)
+        os.environ.pop("STATUSLINE_LANG", None)
+
+    def test_default_is_english(self):
+        _, body = self.get(f"/help?t={TOKEN}")
+        self.assertIn("What each part of the Claude Code status bar means.", body)
+
+    def test_language_file_is_used_without_restart(self):
+        self.set_lang("es")
+        _, body = self.get(f"/help?t={TOKEN}")
+        self.assertIn("Qué significa cada parte de la barra de estado de Claude Code.", body)
+        self.set_lang("fr")
+        _, body = self.get(f"/help?t={TOKEN}")
+        self.assertNotIn("Qué significa", body)
+        self.assertIn("barre d", body)
+
+    def test_environment_wins_over_the_file(self):
+        self.set_lang("es")
+        os.environ["STATUSLINE_LANG"] = "de"
+        _, body = self.get(f"/help?t={TOKEN}")
+        self.assertIn("Hilfe", body)
+
+    def test_unknown_language_falls_back_to_english(self):
+        for code in ("zz", "../etc/passwd", "e/", "1a", ""):
+            with self.subTest(code=code):
+                self.set_lang(code)
+                _, body = self.get(f"/help?t={TOKEN}")
+                self.assertIn("What each part of the Claude Code status bar means.", body)
+
+    def test_region_suffix_is_accepted(self):
+        self.set_lang("es_ES")
+        _, body = self.get(f"/help?t={TOKEN}")
+        self.assertIn("Qué significa cada parte", body)
+
+    def test_diff_page_is_translated_too(self):
+        self.set_lang("es")
+        _, body = self.get(f"/?t={TOKEN}&d={self.repo}")
+        self.assertIn("Cambios · repo", body)
+
+    def test_security_behaviour_is_the_same_in_every_language(self):
+        self.set_lang("de")
+        self.assertEqual(self.get("/help")[0].status, 403)
+        self.assertEqual(self.get(f"/help?t={TOKEN}", host="evil.com")[0].status, 403)
+
+
 if __name__ == "__main__":
     unittest.main()

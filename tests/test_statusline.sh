@@ -16,7 +16,7 @@ bad() { printf '  ✖ %s\n' "$1"; failures=$((failures + 1)); }
 chk() { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 
 # Copy of the scripts so diffserver.py can be "updated" without touching the repo
-cp "$ROOT/statusline.sh" "$ROOT/diffserver.py" "$ROOT/VERSION" "$TMP/"
+cp -R "$ROOT/statusline.sh" "$ROOT/diffserver.py" "$ROOT/VERSION" "$ROOT/lang" "$TMP/"
 git init -q "$TMP/repo" && echo hello >"$TMP/repo/f.txt"
 
 export XDG_STATE_HOME="$TMP/state"
@@ -100,6 +100,34 @@ chk "price: Haiku 5.5 up to 100k = \$0.125" '[ "$(recache_cost "Haiku 5.5" 80000
 chk "price: Haiku 5.5 over 100k = \$0.625"  '[ "$(recache_cost "Haiku 5.5" 160000)" = "\$0.10" ]'
 chk "price: Fable 5.1 = \$12.50 per MTok"   '[ "$(recache_cost "Fable 5.1" 200000)" = "\$2.50" ]'
 chk "STATUSLINE_RECACHE_USD_PER_MTOK changes the cost"   '[[ "$(echo "$NO_GIT,\"transcript_path\":\"$TMP/t_old.jsonl\"}" | STATUSLINE_RECACHE_USD_PER_MTOK=10 timeout_run "$TMP/statusline.sh" 2>/dev/null)" == *"\$2.00"* ]]'
+
+# Languages: STATUSLINE_LANG > $STATE/lang file > English; unknown values fall back to English
+unset STATUSLINE_LANG
+bar_in() { echo "$JSON" | STATUSLINE_LANG="$1" timeout_run "$TMP/statusline.sh" 2>/dev/null; }
+old_in() { echo "$NO_GIT,\"transcript_path\":\"$TMP/t_old.jsonl\"}" | STATUSLINE_LANG="$1" timeout_run "$TMP/statusline.sh" 2>/dev/null; }
+chk "lang es: help link is translated"       '[[ "$(bar_in es)" == *"ⓘ ayuda"* ]]'
+chk "lang fr: help link is translated"       '[[ "$(bar_in fr)" == *"ⓘ aide"* ]]'
+chk "lang de: help link is translated"       '[[ "$(bar_in de)" == *"ⓘ Hilfe"* ]]'
+chk "lang pt: help link is translated"       '[[ "$(bar_in pt)" == *"ⓘ ajuda"* ]]'
+chk "lang en: help link stays in English"    '[[ "$(bar_in en)" == *"ⓘ help"* ]]'
+chk "lang es: expired-cache warning is translated"  '[[ "$(old_in es)" == *"Caché caducada"*"200.0k"*"\$1.25"* ]]'
+chk "lang de: expired-cache warning is translated"  '[[ "$(old_in de)" == *"Cache abgelaufen"*"200.0k"*"\$1.25"* ]]'
+chk "unknown language falls back to English"        '[[ "$(bar_in zz)" == *"ⓘ help"* ]]'
+chk "invalid language value falls back to English"  '[[ "$(bar_in "../x")" == *"ⓘ help"* ]]'
+chk "es_ES is accepted as es"                       '[[ "$(bar_in es_ES)" == *"ⓘ ayuda"* ]]'
+echo de >"$STATE/lang"
+chk "the lang file in the state folder is used"     '[[ "$(echo "$JSON" | timeout_run "$TMP/statusline.sh" 2>/dev/null)" == *"ⓘ Hilfe"* ]]'
+chk "STATUSLINE_LANG wins over the lang file"       '[[ "$(bar_in fr)" == *"ⓘ aide"* ]]'
+rm -f "$STATE/lang"
+chk "a missing key in a language falls back to English" '
+  mkdir -p "$TMP/lang_partial" && cp -R "$TMP/lang" "$TMP/lang_partial/lang" && cp "$TMP/statusline.sh" "$TMP/diffserver.py" "$TMP/VERSION" "$TMP/lang_partial/" &&
+  jq "del(.bar.help)" "$TMP/lang_partial/lang/es.json" >"$TMP/lang_partial/x" && mv "$TMP/lang_partial/x" "$TMP/lang_partial/lang/es.json" &&
+  [[ "$(echo "$JSON" | STATUSLINE_LANG=es timeout_run "$TMP/lang_partial/statusline.sh" 2>/dev/null)" == *"ⓘ help"* ]]'
+# Changing the language restarts the server so the help page follows it
+pid_before=$(cat "$STATE/server.pid")
+bar_in es >/dev/null; sleep 1; wait_server
+chk "changing the language restarts the server" '[ "$(cat "$STATE/server.pid")" != "$pid_before" ]'
+chk "and the new server answers in that language" '[[ "$(curl -s --max-time 5 "http://127.0.0.1:$STATUSLINE_PORT/help?t=$(cat "$STATE/token")")" == *"barra de estado"* ]]'
 
 chk "--version works"  '"$TMP/statusline.sh" --version | grep -q "^claude-code-statusline [0-9]"'
 chk "--doctor works"   '"$TMP/statusline.sh" --doctor >/dev/null'

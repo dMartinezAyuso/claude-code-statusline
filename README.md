@@ -41,7 +41,7 @@ git checkout "$(git describe --tags --abbrev=0)"   # optional: latest stable ver
 ./install.sh                                       # sets statusLine in ~/.claude/settings.json
 ```
 
-`install.sh` checks the dependencies (`./statusline.sh --doctor`), makes a **backup** of `settings.json`, does not overwrite a foreign `statusLine` unless you pass `--force`, and is undone with `./install.sh --uninstall`. If you use a different configuration folder, set `CLAUDE_CONFIG_DIR`.
+`install.sh` also picks the [language](#languages) of the bar from your system locale (you can change it later). It checks the dependencies (`./statusline.sh --doctor`), makes a **backup** of `settings.json`, does not overwrite a foreign `statusLine` unless you pass `--force`, and is undone with `./install.sh --uninstall`. If you use a different configuration folder, set `CLAUDE_CONFIG_DIR`.
 
 Manual installation: in `settings.json`
 
@@ -53,6 +53,16 @@ Manual installation: in `settings.json`
 
 Tested against the Claude Code statusline JSON of November 2026. Fields that do not exist are simply not drawn.
 
+## Languages
+
+The bar's labels and the help page (`ⓘ help`) are available in **English, Spanish, French, Portuguese and German**.
+
+- `./install.sh` detects your language the first time (from `LC_ALL`, `LC_MESSAGES` or `LANG`, or the macOS system language if none is set), saves it and tells you which one it chose. Anything it does not support falls back to English.
+- Change it at any time with `./install.sh --lang es` (or `en`, `fr`, `pt`, `de`). Codes like `pt_BR` or `es_ES` are accepted. The bar picks it up on the next refresh and the help page follows it.
+- `STATUSLINE_LANG=fr` in the environment overrides the saved language, for example to try another one.
+
+Symbols, units (`5h`, `7d`, `h`, `m`) and setting names are the same in every language. The messages of `install.sh` and `--doctor` stay in English. The translations are a good-faith effort and some were not reviewed by native speakers: corrections are very welcome (see [CONTRIBUTING.md](CONTRIBUTING.md#translations)).
+
 ## Configuration
 
 All settings are optional environment variables:
@@ -60,6 +70,7 @@ All settings are optional environment variables:
 | Variable | Default | What it does |
 |---|---|---|
 | `STATUSLINE_PORT` | `8765` | Port of the local diff server (always bound to `127.0.0.1`). |
+| `STATUSLINE_LANG` | saved by `install.sh` | Language of the bar and the help page: `en`, `es`, `fr`, `pt` or `de`. Overrides the saved language. |
 | `STATUSLINE_BURN_WARN` | `15` | Spend rate (USD/hour) from which `$N/h` turns yellow. |
 | `STATUSLINE_BURN_HIGH` | `30` | Spend rate (USD/hour) from which `$N/h` turns red. |
 | `STATUSLINE_RECACHE_USD_PER_MTOK` | by model | Price per million tokens used to estimate the re-cache cost in the warning line. |
