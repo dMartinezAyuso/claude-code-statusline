@@ -65,6 +65,19 @@ chk "los conflictos se pintan como U rojo" '[ "$(grep -oF "$rojoU" <<<"$salida" 
 rm -rf "$XDG_STATE_HOME/sigpipe"; mkdir -p "$XDG_STATE_HOME/sigpipe"
 chk "con SIGPIPE ignorado termina (no se cuelga) y genera el token" 'XDG_STATE_HOME="$XDG_STATE_HOME/sigpipe" perl -e '"'"'$SIG{PIPE}="IGNORE"; alarm 20; exec @ARGV'"'"' -- "$TMP/statusline.sh" >/dev/null 2>&1 <<<"$JSON" && [ "$(wc -c <"$XDG_STATE_HOME/sigpipe/claude-code-statusline/token" | tr -d " ")" = 32 ]'
 
+# Prompt cache (5 min TTL), spend rate and re-cache warning. No repo: line 2 only.
+SIN_GIT='{"model":{"display_name":"Opus"},"context_window":{"context_window_size":1000000,"current_usage":{"input_tokens":200000}},"cost":{"total_cost_usd":3.0,"total_duration_ms":1800000}'
+touch "$TMP/t_fresco.jsonl"; touch -t 200001010000 "$TMP/t_viejo.jsonl"
+fresco=$(echo "$SIN_GIT,\"transcript_path\":\"$TMP/t_fresco.jsonl\"}" | timeout_run "$TMP/statusline.sh" 2>/dev/null)
+viejo=$(echo "$SIN_GIT,\"transcript_path\":\"$TMP/t_viejo.jsonl\"}" | timeout_run "$TMP/statusline.sh" 2>/dev/null)
+ninguno=$(echo "$SIN_GIT}" | timeout_run "$TMP/statusline.sh" 2>/dev/null)
+chk "live cache: shows the expiry time ↺HH:MM" '[[ "$fresco" =~ ↺[0-9][0-9]:[0-9][0-9] ]]'
+chk "live cache: no re-cache warning"                    '[[ "$fresco" != *expired* ]]'
+chk "expired cache: warns with context size and cost"  '[[ "$viejo" == *"expired"*"200.0k"*"\$1.25"* ]]'
+chk "no transcript: no countdown and no warning"        '[[ "$ninguno" != *↺* && "$ninguno" != *expired* ]]'
+chk "spend rate: \$3 in 30 min = \$6/h"              '[[ "$fresco" == *"\$6/h"* ]]'
+chk "STATUSLINE_RECACHE_USD_PER_MTOK changes the cost"   '[[ "$(echo "$SIN_GIT,\"transcript_path\":\"$TMP/t_viejo.jsonl\"}" | STATUSLINE_RECACHE_USD_PER_MTOK=10 timeout_run "$TMP/statusline.sh" 2>/dev/null)" == *"\$2.00"* ]]'
+
 chk "--version funciona"  '"$TMP/statusline.sh" --version | grep -q "^claude-code-statusline [0-9]"'
 chk "--doctor funciona"   '"$TMP/statusline.sh" --doctor >/dev/null'
 

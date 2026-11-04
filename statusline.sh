@@ -51,7 +51,7 @@ asegura_servidor() {
 
 # Una sola llamada a jq; separador \x1f para conservar los campos vacíos.
 IFS=$'\x1f' read -r model effort dir ctx_size cur tin tout cost dur_ms added removed \
-  h5 h5_reset d7 d7_reset hit pr_num pr_state vim agent fast < <(
+  h5 h5_reset d7 d7_reset hit pr_num pr_state vim agent fast transcript < <(
   echo "$input" | jq -r '[
     (.model.display_name // ""),
     (.effort.level // ""),
@@ -73,7 +73,8 @@ IFS=$'\x1f' read -r model effort dir ctx_size cur tin tout cost dur_ms added rem
     (.pr.review_state // ""),
     (.vim.mode // ""),
     (.agent.name // ""),
-    (if .fast_mode then "1" else "" end)
+    (if .fast_mode then "1" else "" end),
+    (.transcript_path // "")
   ] | map(tostring) | join("\u001f")' 2>/dev/null
 )
 
@@ -236,15 +237,50 @@ fi
 # Coste
 if [ -n "$cost" ]; then
   if awk "BEGIN{exit !($cost >= 5)}"; then c=$RED; elif awk "BEGIN{exit !($cost >= 1)}"; then c=$YELLOW; else c=$GREEN; fi
-  add2 "${c}\$$(printf '%.2f' "$cost")${R}"
+  burn=""
+  # Spend rate ($/h): only after 5 min of session, earlier it is just noise
+  if [ -n "$dur_ms" ] && [ "$dur_ms" -ge 300000 ] 2>/dev/null; then
+    rate=$(awk -v c="$cost" -v d="$dur_ms" 'BEGIN{printf "%.0f", c / d * 3600000}')
+    if [ "$rate" -ge 30 ]; then bc=$RED; elif [ "$rate" -ge 15 ]; then bc=$YELLOW; else bc=$DIM; fi
+    burn=" ${bc}\$${rate}/h${R}"
+  fi
+  add2 "${c}\$$(printf '%.2f' "$cost")${R}${burn}"
 fi
 
 # Aciertos de caché de prompt (alto = barato)
 if [ -n "$hit" ]; then
   hp=$(awk -v h="$hit" 'BEGIN{printf "%.0f", h*100}')
   if [ "$hp" -ge 70 ]; then c=$GREEN; elif [ "$hp" -ge 40 ]; then c=$YELLOW; else c=$RED; fi
-  add2 "${DIM}caché${R} ${c}${hp}%${R}"
+  cache_seg="${DIM}caché${R} ${c}${hp}%${R}"
 fi
+
+# Prompt cache expiry (5 min after the last activity, approximated with the transcript mtime).
+# Once expired, a large context is fully re-cached on the next prompt: warn about it.
+CACHE_TTL=300
+alerta=""
+if [ -n "$transcript" ] && [ -f "$transcript" ]; then
+  # GNU stat first: on Linux `stat -f` means "filesystem status" and prints garbage instead of failing
+  mt=$(stat -c %Y "$transcript" 2>/dev/null || stat -f %m "$transcript" 2>/dev/null)
+  if [[ "$mt" =~ ^[0-9]+$ ]]; then
+    left=$(( mt + CACHE_TTL - $(date +%s) ))
+    hm=$(date -r $(( mt + CACHE_TTL )) +%H:%M 2>/dev/null || date -d "@$(( mt + CACHE_TTL ))" +%H:%M 2>/dev/null)
+    if [ "$left" -gt 60 ]; then ttl="${GREEN}↺${hm}${R}"
+    elif [ "$left" -gt 0 ]; then ttl="${YELLOW}↺${hm}${R}"
+    else
+      ttl="${RED}exp ${hm}${R}"
+      # Cache-creation price per million tokens by model (STATUSLINE_RECACHE_USD_PER_MTOK overrides it)
+      case "$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')" in
+        *haiku*) tarifa=1.25 ;; *sonnet*) tarifa=3.75 ;; *) tarifa=6.25 ;;
+      esac
+      tarifa="${STATUSLINE_RECACHE_USD_PER_MTOK:-$tarifa}"
+      if [ "${cur:-0}" -ge 50000 ] 2>/dev/null; then
+        alerta="${RED}${BOLD}Cache expired${R}${RED}: the next prompt re-caches $(fmt "$cur") ≈ \$$(awk -v t="$cur" -v r="$tarifa" 'BEGIN{printf "%.2f", t * r / 1000000}') → /compact${R}"
+      fi
+    fi
+    cache_seg="${cache_seg:-${DIM}caché${R}} ${ttl}"
+  fi
+fi
+[ -n "$cache_seg" ] && add2 "$cache_seg"
 
 # Tokens acumulados
 if [ -n "$tin" ] || [ -n "$tout" ]; then
@@ -267,5 +303,6 @@ fi
 
 [ -n "$l1" ] && printf '%s\n' "$l1"
 [ -n "$l2" ] && printf '%s\n' "$l2"
+[ -n "$alerta" ] && printf '%s\n' "$alerta"
 [ -n "$files_line" ] && printf '%s\n' "$files_line"
 exit 0
