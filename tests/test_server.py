@@ -395,5 +395,41 @@ class RegisteredRepositories(ServerBase):
         self.assertEqual(self.get(f"/?t={TOKEN}&d={self.repo}", host="evil.com")[0].status, 403)
 
 
+class LegendAnchors(ServerBase):
+    def help_page(self, lang=None):
+        path = os.path.join(self.tmp.name, "state", "lang")
+        if lang:
+            with open(path, "w") as f:
+                f.write(lang)
+        try:
+            return self.get(f"/help?t={TOKEN}")[1]
+        finally:
+            if os.path.exists(path):
+                os.remove(path)
+
+    def test_every_row_is_an_anchor(self):
+        body = self.help_page()
+        for ident in ("ctx", "limit-5h", "cost", "cost-subscription", "burn", "cache", "cache-expiry",
+                      "cache-expired", "tokens", "staged", "warning", "more"):
+            with self.subTest(id=ident):
+                self.assertIn(f'<tr id="{ident}">', body)
+
+    def test_anchors_are_the_same_in_every_language(self):
+        import re
+        ref = re.findall(r'<tr id="([^"]+)"', self.help_page())
+        self.assertGreater(len(ref), 40)
+        for code in ("es", "fr", "pt", "de"):
+            with self.subTest(code=code):
+                self.assertEqual(re.findall(r'<tr id="([^"]+)"', self.help_page(code)), ref)
+
+    def test_the_targeted_row_is_highlighted_with_css_only(self):
+        body = self.help_page()
+        self.assertIn("tr:target", body)
+        self.assertNotIn("<script", body)
+
+    def test_the_intro_explains_the_links(self):
+        self.assertIn("Cmd+click", self.help_page().split("<section>")[0])
+
+
 if __name__ == "__main__":
     unittest.main()

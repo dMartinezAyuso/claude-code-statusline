@@ -117,6 +117,14 @@ CYAN=$'\033[36m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'
 MAG=$'\033[35m'; BLUE=$'\033[34m'
 sep="${DIM} │ ${R}"
 
+# Link a part of the bar to its row in the help page (Cmd+click): hl <row id> <text>.
+# STATUSLINE_LINKS=off leaves plain text. The text on screen is the same either way.
+links="${STATUSLINE_LINKS:-on}"
+hl() {
+  if [ "$links" = off ] || [ -z "$TOKEN" ]; then printf '%s' "$2"; return; fi
+  printf '\033]8;;http://127.0.0.1:%s/help?t=%s#%s\a%s\033]8;;\a' "$PORT" "$TOKEN" "$1" "$2"
+}
+
 # 12345 -> 12.3k, 1234567 -> 1.2M
 fmt() {
   awk -v n="${1:-0}" 'BEGIN{ if(n>=1000000) printf "%.1fM", n/1000000; else if(n>=1000) printf "%.1fk", n/1000; else printf "%d", n }'
@@ -200,11 +208,11 @@ if [ -n "$dir" ]; then
       END{ printf "%d %d %d %d", s, m, u, c }')
     read -r n_s n_m n_u n_c <<<"$counts"
     g=""
-    [ "$n_s" -gt 0 ] && g+=" ${GREEN}●${n_s}${R}"
-    [ "$n_m" -gt 0 ] && g+=" ${YELLOW}✚${n_m}${R}"
-    [ "$n_u" -gt 0 ] && g+=" ${DIM}?${n_u}${R}"
-    [ "$n_c" -gt 0 ] && g+=" ${RED}✖${n_c}${R}"
-    [ -n "$g" ] && l1+="${sep}${g# }" || l1+="${sep}${GREEN}${L_CLEAN}${R}"
+    [ "$n_s" -gt 0 ] && g+=" $(hl staged "${GREEN}●${n_s}${R}")"
+    [ "$n_m" -gt 0 ] && g+=" $(hl modified "${YELLOW}✚${n_m}${R}")"
+    [ "$n_u" -gt 0 ] && g+=" $(hl untracked "${DIM}?${n_u}${R}")"
+    [ "$n_c" -gt 0 ] && g+=" $(hl conflicts "${RED}✖${n_c}${R}")"
+    [ -n "$g" ] && l1+="${sep}${g# }" || l1+="${sep}$(hl clean "${GREEN}${L_CLEAN}${R}")"
 
     # Local diff server (127.0.0.1, read-only): started on its own if it is not running
     ensure_server
@@ -266,7 +274,7 @@ if [ -n "$pr_num" ]; then
   case "$pr_state" in
     approved) pc=$GREEN ;; changes_requested) pc=$RED ;; *) pc=$YELLOW ;;
   esac
-  l1+="${sep}${pc}PR #${pr_num}${R}"
+  l1+="${sep}$(hl pr "${pc}PR #${pr_num}${R}")"
 fi
 [ -n "$vim" ] && l1+="${sep}${DIM}${vim}${R}"
 # ⓘ: link to the bar legend (served by diffserver.py)
@@ -282,7 +290,7 @@ add2() { if [ -n "$l2" ]; then l2+="${sep}$1"; else l2="$1"; fi; }
 if [ -n "$ctx_size" ] && [ "$ctx_size" -gt 0 ] 2>/dev/null; then
   pct=$(( cur * 100 / ctx_size )); [ "$pct" -gt 100 ] && pct=100
   c=$(pct_color "$pct")
-  add2 "${DIM}ctx${R} ${c}$(bar "$pct" 10) ${pct}%${R}${DIM} ($(fmt "$cur")/$(fmt "$ctx_size"))${R}"
+  add2 "$(hl ctx "${DIM}ctx${R} ${c}$(bar "$pct" 10) ${pct}%${R}${DIM} ($(fmt "$cur")/$(fmt "$ctx_size"))${R}")"
 fi
 
 # Subscription usage limits: how much you have used and when it renews
@@ -290,19 +298,19 @@ if [ -n "$h5" ]; then
   p=$(printf '%.0f' "$h5"); c=$(pct_color "$p")
   s="${DIM}5h${R} ${c}$(bar "$p" 8) ${p}%${R}"
   [ -n "$h5_reset" ] && s+="${DIM} ↻$(countdown "$h5_reset")${R}"
-  add2 "$s"
+  add2 "$(hl limit-5h "$s")"
 fi
 if [ -n "$d7" ]; then
   p=$(printf '%.0f' "$d7"); c=$(pct_color "$p")
   s="${DIM}7d${R} ${c}$(bar "$p" 8) ${p}%${R}"
   [ -n "$d7_reset" ] && s+="${DIM} ↻$(countdown "$d7_reset")${R}"
-  add2 "$s"
+  add2 "$(hl limit-7d "$s")"
 fi
 
 # Cost
 if [ -n "$cost" ] && [ "$billing" = subscription ]; then
   # Not money you pay: shown dimmed as an approximation, with no colour thresholds and no $/h rate
-  add2 "${DIM}≈\$$(printf '%.2f' "$cost")${R}"
+  add2 "$(hl cost-subscription "${DIM}≈\$$(printf '%.2f' "$cost")${R}")"
 elif [ -n "$cost" ]; then
   if awk "BEGIN{exit !($cost >= 5)}"; then c=$RED; elif awk "BEGIN{exit !($cost >= 1)}"; then c=$YELLOW; else c=$GREEN; fi
   burn=""
@@ -314,16 +322,16 @@ elif [ -n "$cost" ]; then
     read -r rate level < <(awk -v c="$cost" -v d="$dur_ms" -v w="$burn_warn" -v h="$burn_high" \
       'BEGIN{r = c / d * 3600000; printf "%.0f %d", r, (r >= h) ? 2 : ((r >= w) ? 1 : 0)}')
     case "$level" in 2) bc=$RED ;; 1) bc=$YELLOW ;; *) bc=$DIM ;; esac
-    burn=" ${bc}\$${rate}/h${R}"
+    burn=" $(hl burn "${bc}\$${rate}/h${R}")"
   fi
-  add2 "${c}\$$(printf '%.2f' "$cost")${R}${burn}"
+  add2 "$(hl cost "${c}\$$(printf '%.2f' "$cost")${R}")${burn}"
 fi
 
 # Prompt cache hits (high = cheap)
 if [ -n "$hit" ]; then
   hp=$(awk -v h="$hit" 'BEGIN{printf "%.0f", h*100}')
   if [ "$hp" -ge 70 ]; then c=$GREEN; elif [ "$hp" -ge 40 ]; then c=$YELLOW; else c=$RED; fi
-  cache_seg="${DIM}${L_CACHE}${R} ${c}${hp}%${R}"
+  cache_seg="$(hl cache "${DIM}${L_CACHE}${R} ${c}${hp}%${R}")"
 fi
 
 # Prompt cache expiry. Claude Code reports the exact moment (prompt_cache.expires_at, valid for the
@@ -346,10 +354,10 @@ fi
 if [ -n "$expiry" ]; then
   left=$(( expiry - $(date +%s) ))
   hm=$(date -r "$expiry" +%H:%M 2>/dev/null || date -d "@$expiry" +%H:%M 2>/dev/null)
-  if [ "$left" -gt 60 ]; then ttl="${GREEN}↺${hm}${R}"
-  elif [ "$left" -gt 0 ]; then ttl="${YELLOW}↺${hm}${R}"
+  if [ "$left" -gt 60 ]; then ttl="$(hl cache-expiry "${GREEN}↺${hm}${R}")"
+  elif [ "$left" -gt 0 ]; then ttl="$(hl cache-expiry "${YELLOW}↺${hm}${R}")"
   else
-    ttl="${RED}${L_EXP} ${hm}${R}"
+    ttl="$(hl cache-expired "${RED}${L_EXP} ${hm}${R}")"
     # 5-minute cache-write price per million tokens, from the official pricing table
     # (https://platform.claude.com/docs/en/about-claude/pricing). STATUSLINE_RECACHE_USD_PER_MTOK overrides it.
     m=$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')
@@ -367,21 +375,21 @@ if [ -n "$expiry" ]; then
       tok_tag='{tokens}'; cost_tag='{cost}'
       if [ "$billing" = subscription ]; then
         # With a subscription a cold cache costs usage limit, not money
-        warning="${RED}${BOLD}${L_WARN_LIMIT//$tok_tag/$(fmt "$cold_tokens")}${R}"
+        warning="$(hl cache-expired "${RED}${BOLD}${L_WARN_LIMIT//$tok_tag/$(fmt "$cold_tokens")}${R}")"
       else
         warning="${L_WARN//$tok_tag/$(fmt "$cold_tokens")}"
-        warning="${RED}${BOLD}${warning//$cost_tag/\$$(awk -v t="$cold_tokens" -v r="$price" 'BEGIN{printf "%.2f", t * r / 1000000}')}${R}"
+        warning="$(hl cache-expired "${RED}${BOLD}${warning//$cost_tag/\$$(awk -v t="$cold_tokens" -v r="$price" 'BEGIN{printf "%.2f", t * r / 1000000}')}${R}")"
       fi
     fi
   fi
-  cache_seg="${cache_seg:-${DIM}${L_CACHE}${R}} ${ttl}"
+  cache_seg="${cache_seg:-$(hl cache "${DIM}${L_CACHE}${R}")} ${ttl}"
 
 fi
 [ -n "$cache_seg" ] && add2 "$cache_seg"
 
 # Accumulated tokens
 if [ -n "$tin" ] || [ -n "$tout" ]; then
-  add2 "${DIM}↓${R}$(fmt "$tin") ${DIM}↑${R}$(fmt "$tout")"
+  add2 "$(hl tokens "${DIM}↓${R}$(fmt "$tin") ${DIM}↑${R}$(fmt "$tout")")"
 fi
 
 # Duration
@@ -390,12 +398,12 @@ if [ -n "$dur_ms" ]; then
   if [ "$s" -ge 3600 ]; then t="$((s/3600))h$(( (s%3600)/60 ))m"
   elif [ "$s" -ge 60 ]; then t="$((s/60))m$((s%60))s"
   else t="${s}s"; fi
-  add2 "${DIM}⏱ ${t}${R}"
+  add2 "$(hl duration "${DIM}⏱ ${t}${R}")"
 fi
 
 # Lines of code in the session
 if [ -n "$added" ] || [ -n "$removed" ]; then
-  add2 "${GREEN}+${added:-0}${R} ${RED}-${removed:-0}${R}"
+  add2 "$(hl lines "${GREEN}+${added:-0}${R} ${RED}-${removed:-0}${R}")"
 fi
 
 [ -n "$l1" ] && printf '%s\n' "$l1"

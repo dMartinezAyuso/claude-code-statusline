@@ -3,7 +3,7 @@
 ## Workflow
 1. Fork or create a branch: `git switch -c fix/whatever` (`feat/…`, `docs/…`, `ci/…`).
 2. Change and **test locally** (see below).
-3. Add a line to `CHANGELOG.md` under `[Unreleased]` (mark it **[security]** if it applies). If you change what the bar shows, also update the legend (the `sections` of `lang/en.json`, shown at `/help`, and the same rows in every other language file) and the README.
+3. Add a line to `CHANGELOG.md` under `[Unreleased]` (mark it **[security]** if it applies). If you change what the bar shows, also update the legend (the `sections` of `lang/en.json`, shown at `/help`, and the same rows in every other language file) and the README. A new part of the bar is wrapped with `hl <row id> <text>` in `statusline.sh` so that Cmd+click opens its row.
 4. Open a PR against `main`; the template guides you. CI must be green (lint, tests on Linux and macOS, CodeQL).
 5. PRs are merged with *squash and merge*. The PR title becomes the commit message: make it clear.
 
@@ -23,7 +23,7 @@ Every fixed bug should come with a test that fails without the fix.
 
 ## Translations
 All texts the user sees in the bar and in the help page live in `lang/<code>.json` (English is the reference). To add a language:
-1. Copy `lang/en.json` to `lang/<two-letter-code>.json` and translate the values. Keep the keys, the order and the number of rows of every section, and keep the placeholders (`{tokens}`, `{cost}`, `{repo}`, `{count}`, `{kib}`) and the setting names (`STATUSLINE_*`) exactly as they are.
+1. Copy `lang/en.json` to `lang/<two-letter-code>.json` and translate the values. Keep the keys, the order and the number of rows of every section (a row is `[symbol, text, id]`: the `id` is how the bar links to the row, so keep it exactly as in English), and keep the placeholders (`{tokens}`, `{cost}`, `{repo}`, `{count}`, `{kib}`) and the setting names (`STATUSLINE_*`) exactly as they are.
 2. Keep the row symbols that mirror the bar (for example the `cache N%` row must use the same word as the `cache` label).
 3. Run `python3 -m unittest tests.test_lang`: it checks that your file has the same shape as the English one. Add the code to `EXPECTED` in that test and to the list in the README.
 4. A missing key falls back to English, but the test requires them all.

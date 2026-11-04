@@ -7,10 +7,10 @@
 A custom 3-line status bar for [Claude Code](https://claude.com/claude-code):
 
 1. Model and effort · project · git branch (↑ahead ↓behind) · git state · PR
-2. Context · 5h/7d usage limits with countdown · cost and $/h rate · prompt cache with expiry time · tokens · duration · lines
+2. Context · 5h/7d usage limits with countdown · cost (and $/h rate with an API account, see [Subscription or API](#subscription-or-api)) · prompt cache with expiry time · tokens · duration · lines
 3. The files changed against `HEAD`: the first 10, then a `+N more` link when there are more (see [Changed files](#changed-files)). **Cmd+click** on a file opens its diff in the browser.
 
-The `ⓘ help` link opens a legend explaining every symbol, color and setting.
+**Cmd+click on any part of the bar** (context, limits, cost, cache, tokens, the file counters…) opens the help page right at the explanation of that part, highlighted. The `ⓘ help` link opens the whole legend, with every symbol, color and setting. The parts are plain links, so terminals may underline them; set `STATUSLINE_LINKS=off` to keep only `ⓘ help`.
 
 ### Prompt cache indicator
 
@@ -99,6 +99,7 @@ All settings are optional environment variables:
 | Variable | Default | What it does |
 |---|---|---|
 | `STATUSLINE_PORT` | `8765` | Port of the local diff server (always bound to `127.0.0.1`). |
+| `STATUSLINE_LINKS` | `on` | `on` or `off`: whether each part of the bar links to its row in the help page. |
 | `STATUSLINE_BILLING` | `auto` | `auto`, `api` or `subscription`: how the cost is presented (see [Subscription or API](#subscription-or-api)). |
 | `STATUSLINE_FILES` | `compact` | How the changed-file list is shown: `full`, `compact`, `count` or `off`. |
 | `STATUSLINE_MAX_FILES` | `10` | How many files `compact` lists before `+N more`. |
@@ -116,6 +117,7 @@ All settings are optional environment variables:
 - A link answers `403`: the token changed or the link is stale. Click a fresh link from the bar.
 - The server does not start: another program may be using port `8765`; set `STATUSLINE_PORT` to a free one.
 - Nothing appears after installing: restart Claude Code, and check that `statusLine` in `settings.json` points to `statusline.sh`.
+- The parts of the bar are underlined or I do not want them to be clickable: set `STATUSLINE_LINKS=off` (the `ⓘ help` link stays).
 - I only see some of my changed files: that is the default `compact` mode (10 files and a `+N more` link). Set `STATUSLINE_FILES=full` to list them all, or `STATUSLINE_MAX_FILES=25` to list more.
 - The bar or the help page is not in the language I expected: run `./install.sh --lang <code>` (`en`, `es`, `fr`, `pt` or `de`). The language is chosen once, so changing your system language later does not change it.
 
@@ -137,7 +139,7 @@ Before updating, read the [CHANGELOG](CHANGELOG.md): security changes are marked
 - **Pin a version** (`git checkout vX.Y.Z`) if you prefer stability; follow `main` if you want the latest.
 - **Read the diff before updating** (`git diff HEAD..origin/main`): this script runs every few seconds with your permissions and starts a server. It is little code; review it as you would any third-party script.
 - **Do not bind the port to an IP other than `127.0.0.1`** and do not expose the server through tunnels or proxies: it would serve your uncommitted code to whoever reaches it.
-- **Do not share screenshots or copy links from the bar** (they carry the token in the URL). If you do, rotate the token (below).
+- **Do not share screenshots or copy links from the bar** (they carry the token in the URL). If you do, rotate the token (below). Some terminals (VS Code, WezTerm, Kitty…) show a link's address when you hover over it: do not hover over the bar while sharing your screen, or set `STATUSLINE_LINKS=off` and keep only the `ⓘ help` link.
 - **Rotate the token** if you suspect it leaked: `rm ~/.local/state/claude-code-statusline/token`; a new one is generated on the next refresh and the server reads it on every request.
 - **To stop the server**: `pkill -f diffserver.py`; it restarts by itself when the bar is used again. To disable it completely, remove the statusline from `settings.json`.
 - **Customize in a fork or your own branch**, not on a cloned `main`, so `git pull` does not clash with your changes.

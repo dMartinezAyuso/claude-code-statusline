@@ -11,7 +11,7 @@
   },
   "page": {
     "title": "Help · status bar",
-    "intro": "What each part of the Claude Code status bar means."
+    "intro": "What each part of the Claude Code status bar means. Cmd+click a part of the bar to come straight to its row."
   },
   "diff": {
     "title": "Changes · {repo} ({count})",
@@ -28,63 +28,78 @@
       "rows": [
         [
           "Model (effort)",
-          "Active model and, in parentheses, the reasoning effort level."
+          "Active model and, in parentheses, the reasoning effort level.",
+          "model"
         ],
         [
           "⚡",
-          "Fast mode on."
+          "Fast mode on.",
+          "fast"
         ],
         [
           "🤖 name",
-          "You are inside a specific agent."
+          "You are inside a specific agent.",
+          "agent"
         ],
         [
           "project",
-          "Current working folder."
+          "Current working folder.",
+          "project"
         ],
         [
           "⎇ branch",
-          "Current git branch."
+          "Current git branch.",
+          "branch"
         ],
         [
           "↑N",
-          "Local commits you have not pushed yet."
+          "Local commits you have not pushed yet.",
+          "ahead"
         ],
         [
           "↓N",
-          "Remote commits you have not pulled yet."
+          "Remote commits you have not pulled yet.",
+          "behind"
         ],
         [
           "●N",
-          "Files staged for commit."
+          "Files staged for commit.",
+          "staged"
         ],
         [
           "✚N",
-          "Modified files that are not staged."
+          "Modified files that are not staged.",
+          "modified"
         ],
         [
           "?N",
-          "New untracked files."
+          "New untracked files.",
+          "untracked"
         ],
         [
           "✖N",
-          "Files with a merge conflict."
+          "Files with a merge conflict.",
+          "conflicts"
         ],
         [
           "✔ clean",
-          "No pending changes."
+          "No pending changes.",
+          "clean"
         ],
         [
           "PR #N",
-          "The branch's pull request. Green = approved, red = changes requested, yellow = pending."
+          "The branch's pull request. Green = approved, red = changes requested, yellow = pending.",
+          "pr"
         ],
         [
           "NORMAL / INSERT",
-          "Vim mode of the Claude Code prompt, when vim mode is enabled."
+          "Vim mode of the Claude Code prompt, when vim mode is enabled.",
+          "vim"
         ],
         [
           "ⓘ help",
-          "This page."
+          "This page.",
+          "help"
         ]
       ]
     },
@@ -93,51 +108,63 @@
       "rows": [
         [
           "ctx ███░░ N%",
-          "How full the conversation context is, with tokens used/total. Green < 50%, yellow < 80%, red from 80%. When it gets red, run /compact or /clear."
+          "How full the conversation context is, with tokens used/total. Green < 50%, yellow < 80%, red from 80%. When it gets red, run /compact or /clear.",
+          "ctx"
         ],
         [
           "5h ███░░ N% ↻",
-          "Usage of your subscription's 5-hour limit and countdown until it resets (↻now = already reset). Same colors as ctx."
+          "Usage of your subscription's 5-hour limit and countdown until it resets (↻now = already reset). Same colors as ctx.",
+          "limit-5h"
         ],
         [
           "7d ███░░ N% ↻",
-          "Usage of the weekly limit and countdown until it resets. Same colors as ctx."
+          "Usage of the weekly limit and countdown until it resets. Same colors as ctx.",
+          "limit-7d"
         ],
         [
           "$N.NN",
-          "Session cost. Green < $1, yellow < $5, red from $5."
+          "Session cost. Green < $1, yellow < $5, red from $5.",
+          "cost"
         ],
         [
           "≈$N.NN",
-          "Subscription mode (Claude Code reports your usage limits): the cost is only the API-equivalent value, not money you pay, so it is dimmed, has no colors and there is no $/h rate."
+          "Subscription mode (Claude Code reports your usage limits): the cost is only the API-equivalent value, not money you pay, so it is dimmed, has no colors and there is no $/h rate.",
+          "cost-subscription"
         ],
         [
           "$N/h",
-          "Spend rate per hour, shown after 5 min of session. Grey below STATUSLINE_BURN_WARN (default $15/h), yellow from there, red from STATUSLINE_BURN_HIGH (default $30/h)."
+          "Spend rate per hour, shown after 5 min of session. Grey below STATUSLINE_BURN_WARN (default $15/h), yellow from there, red from STATUSLINE_BURN_HIGH (default $30/h).",
+          "burn"
         ],
         [
           "cache N%",
-          "Share of the prompt that was served from the prompt cache, which is cheaper. Green ≥ 70%, yellow ≥ 40%, red below."
+          "Share of the prompt that was served from the prompt cache, which is cheaper. Green ≥ 70%, yellow ≥ 40%, red below.",
+          "cache"
         ],
         [
           "↺HH:MM",
-          "Time at which the prompt cache expires, as reported by Claude Code (exact, also for the 1-hour cache). Older versions of Claude Code do not report it, and then it is estimated as 5 min after the last activity. Green while more than 1 min is left, then yellow."
+          "Time at which the prompt cache expires, as reported by Claude Code (exact, also for the 1-hour cache). Older versions of Claude Code do not report it, and then it is estimated as 5 min after the last activity. Green while more than 1 min is left, then yellow.",
+          "cache-expiry"
         ],
         [
           "exp HH:MM",
-          "In red: the prompt cache expired at that time. The next prompt has to rebuild it, which costs more (see the warning line)."
+          "In red: the prompt cache expired at that time. The next prompt has to rebuild it, which costs more (see the warning line).",
+          "cache-expired"
         ],
         [
           "↓N ↑N",
-          "Accumulated tokens: ↓ read (input) and ↑ written (output)."
+          "Accumulated tokens: ↓ read (input) and ↑ written (output).",
+          "tokens"
         ],
         [
           "⏱",
-          "Session duration."
+          "Session duration.",
+          "duration"
         ],
         [
           "+N -N",
-          "Lines of code added (green) and deleted (red) in the session."
+          "Lines of code added (green) and deleted (red) in the session.",
+          "lines"
         ]
       ]
     },
@@ -146,7 +173,8 @@
       "rows": [
         [
           "Cache expired: …",
-          "Appears between lines 2 and 3 when the cache has expired and the context is large (≥ 50k tokens). The next prompt will re-cache all of it; it shows the estimated cost. Running /compact first makes that cheaper."
+          "Appears between lines 2 and 3 when the cache has expired and the context is large (≥ 50k tokens). The next prompt will re-cache all of it; it shows the estimated cost. Running /compact first makes that cheaper.",
+          "warning"
         ]
       ]
     },
@@ -155,39 +183,48 @@
       "rows": [
         [
           "Δ",
-          "List of every file changed against HEAD. Cmd+click one to see its diff in the browser."
+          "List of every file changed against HEAD. Cmd+click one to see its diff in the browser.",
+          "files"
         ],
         [
           "M",
-          "Modified."
+          "Modified.",
+          "status-m"
         ],
         [
           "A",
-          "Added (staged)."
+          "Added (staged).",
+          "status-a"
         ],
         [
           "D",
-          "Deleted."
+          "Deleted.",
+          "status-d"
         ],
         [
           "R",
-          "Renamed."
+          "Renamed.",
+          "status-r"
         ],
         [
           "U",
-          "Conflict."
+          "Conflict.",
+          "status-u"
         ],
         [
           "?",
-          "New, untracked."
+          "New, untracked.",
+          "status-new"
         ],
         [
           "+N more",
-          "Appears when there are more changed files than STATUSLINE_MAX_FILES. Cmd+click it to open the page with all of them."
+          "Appears when there are more changed files than STATUSLINE_MAX_FILES. Cmd+click it to open the page with all of them.",
+          "more"
         ],
         [
           "Δ 23 · M12 A3 …",
-          "Count mode: the total and how many files per status. Cmd+click it to open the page with all of them."
+          "Count mode: the total and how many files per status. Cmd+click it to open the page with all of them.",
+          "count"
         ]
       ]
     },
@@ -196,39 +233,53 @@
       "rows": [
         [
           "Missing items",
-          "Anything Claude Code does not report (for example the 5h/7d limits without a subscription) is simply not shown."
+          "Anything Claude Code does not report (for example the 5h/7d limits without a subscription) is simply not shown.",
+          "missing"
         ],
         [
           "Links and the token",
-          "Links carry a secret token. Do not share them or paste them in screenshots. If one stops working (403), click a fresh link from the bar."
+          "Links carry a secret token. Do not share them or paste them in screenshots. If one stops working (403), click a fresh link from the bar.",
+          "links-token"
         ],
         [
           "STATUSLINE_PORT",
-          "Port of this local server (default 8765)."
+          "Port of this local server (default 8765).",
+          "setting-port"
         ],
         [
           "STATUSLINE_FILES / STATUSLINE_MAX_FILES",
-          "How the file list is shown: full (all files), compact (default: the first STATUSLINE_MAX_FILES, 10 by default, plus a +N more link), count (only the totals) or off."
+          "How the file list is shown: full (all files), compact (default: the first STATUSLINE_MAX_FILES, 10 by default, plus a +N more link), count (only the totals) or off.",
+          "setting-files"
         ],
         [
           "STATUSLINE_BURN_WARN / STATUSLINE_BURN_HIGH",
-          "Spend rate in USD per hour from which $N/h turns yellow / red (defaults 15 and 30, arbitrary: set what is a lot for you)."
+          "Spend rate in USD per hour from which $N/h turns yellow / red (defaults 15 and 30, arbitrary: set what is a lot for you).",
+          "setting-burn"
         ],
         [
           "STATUSLINE_RECACHE_USD_PER_MTOK",
-          "Price per million tokens used to estimate the re-cache cost. By default the 5-minute cache-write price of the active model from Anthropic's pricing page (platform.claude.com/docs/en/about-claude/pricing)."
+          "Price per million tokens used to estimate the re-cache cost. By default the 5-minute cache-write price of the active model from Anthropic's pricing page (platform.claude.com/docs/en/about-claude/pricing).",
+          "setting-recache"
         ],
         [
           "STATUSLINE_BILLING",
-          "auto (default), api or subscription. auto picks subscription when Claude Code reports usage limits (Pro/Max plans) and api otherwise; set it to force one. In subscription mode a cold cache is reported as usage limit instead of money."
+          "auto (default), api or subscription. auto picks subscription when Claude Code reports usage limits (Pro/Max plans) and api otherwise; set it to force one. In subscription mode a cold cache is reported as usage limit instead of money.",
+          "setting-billing"
         ],
         [
           "STATUSLINE_LANG",
-          "Language of the bar and of this page: en, es, fr, pt or de. It is chosen when you run install.sh; change it with ./install.sh --lang fr, or override it with this variable."
+          "Language of the bar and of this page: en, es, fr, pt or de. It is chosen when you run install.sh; change it with ./install.sh --lang fr, or override it with this variable.",
+          "setting-lang"
+        ],
+        [
+          "STATUSLINE_LINKS",
+          "on (default) or off. With on, Cmd+click on a part of the bar (context, limits, cost, cache, file counters…) opens this page at its explanation. With off only the ⓘ help link is left.",
+          "setting-links"
         ],
         [
           "Problems",
-          "Run ./statusline.sh --doctor in the install folder; it checks the dependencies and prints the version and state folder."
+          "Run ./statusline.sh --doctor in the install folder; it checks the dependencies and prints the version and state folder.",
+          "problems"
         ]
       ]
     }

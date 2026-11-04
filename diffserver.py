@@ -201,10 +201,13 @@ def help_page():
     t = strings()
     body = ""
     for section in t["sections"]:
-        trs = "".join(f"<tr><td class=k>{html.escape(k)}</td><td>{html.escape(v)}</td></tr>" for k, v in section["rows"])
+        # every row has a stable id (the same in all languages) so that the bar can link straight to it
+        trs = "".join(f'<tr id="{html.escape(r[2], quote=True)}"><td class=k>{html.escape(r[0])}</td><td>{html.escape(r[1])}</td></tr>'
+                      for r in section["rows"])
         body += f"<section><h2>{html.escape(section['title'])}</h2><table>{trs}</table></section>"
     extra = ("table{border-collapse:collapse;width:100%}td{padding:5px 12px;border-top:1px solid var(--bd);vertical-align:top}"
-             ".k{white-space:nowrap;font-weight:600;width:1%}")
+             ".k{white-space:nowrap;font-weight:600;width:1%}tr{scroll-margin-top:16px}"
+             "tr:target td{background:var(--hunk);outline:2px solid #388bfd;outline-offset:-2px}")
     return (f"<!doctype html><meta charset=utf-8><title>{html.escape(t['page']['title'])}</title>"
             f"<style>{CSS}{extra}section{{scroll-margin-top:0}}</style>"
             f"<p style='margin:16px'>{html.escape(t['page']['intro'])}</p>" + body +

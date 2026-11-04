@@ -11,7 +11,7 @@
   },
   "page": {
     "title": "Hilfe · Statusleiste",
-    "intro": "Was die einzelnen Teile der Claude-Code-Statusleiste bedeuten."
+    "intro": "Was die einzelnen Teile der Claude-Code-Statusleiste bedeuten. Mit Cmd+Klick auf einen Teil der Leiste kommst du direkt zu seiner Zeile."
   },
   "diff": {
     "title": "Änderungen · {repo} ({count})",
@@ -28,63 +28,78 @@
       "rows": [
         [
           "Modell (Aufwand)",
-          "Aktives Modell und in Klammern die Stufe des Denkaufwands."
+          "Aktives Modell und in Klammern die Stufe des Denkaufwands.",
+          "model"
         ],
         [
           "⚡",
-          "Schnellmodus aktiv."
+          "Schnellmodus aktiv.",
+          "fast"
         ],
         [
           "🤖 Name",
-          "Du befindest dich in einem bestimmten Agenten."
+          "Du befindest dich in einem bestimmten Agenten.",
+          "agent"
         ],
         [
           "Projekt",
-          "Aktueller Arbeitsordner."
+          "Aktueller Arbeitsordner.",
+          "project"
         ],
         [
           "⎇ Branch",
-          "Aktueller Git-Branch."
+          "Aktueller Git-Branch.",
+          "branch"
         ],
         [
           "↑N",
-          "Lokale Commits, die noch nicht gepusht wurden."
+          "Lokale Commits, die noch nicht gepusht wurden.",
+          "ahead"
         ],
         [
           "↓N",
-          "Remote-Commits, die noch nicht gepullt wurden."
+          "Remote-Commits, die noch nicht gepullt wurden.",
+          "behind"
         ],
         [
           "●N",
-          "Für den Commit vorgemerkte Dateien (staged)."
+          "Für den Commit vorgemerkte Dateien (staged).",
+          "staged"
         ],
         [
           "✚N",
-          "Geänderte, nicht vorgemerkte Dateien."
+          "Geänderte, nicht vorgemerkte Dateien.",
+          "modified"
         ],
         [
           "?N",
-          "Neue, nicht verfolgte Dateien."
+          "Neue, nicht verfolgte Dateien.",
+          "untracked"
         ],
         [
           "✖N",
-          "Dateien mit Merge-Konflikt."
+          "Dateien mit Merge-Konflikt.",
+          "conflicts"
         ],
         [
           "✔ sauber",
-          "Keine ausstehenden Änderungen."
+          "Keine ausstehenden Änderungen.",
+          "clean"
         ],
         [
           "PR #N",
-          "Pull Request des Branches. Grün = genehmigt, rot = Änderungen angefordert, gelb = ausstehend."
+          "Pull Request des Branches. Grün = genehmigt, rot = Änderungen angefordert, gelb = ausstehend.",
+          "pr"
         ],
         [
           "NORMAL / INSERT",
-          "Vim-Modus des Claude-Code-Prompts, wenn der Vim-Modus aktiv ist."
+          "Vim-Modus des Claude-Code-Prompts, wenn der Vim-Modus aktiv ist.",
+          "vim"
         ],
         [
           "ⓘ Hilfe",
-          "Diese Seite."
+          "Diese Seite.",
+          "help"
         ]
       ]
     },
@@ -93,51 +108,63 @@
       "rows": [
         [
           "ctx ███░░ N%",
-          "Wie voll der Kontext der Unterhaltung ist, mit verwendeten/gesamten Tokens. Grün < 50 %, gelb < 80 %, rot ab 80 %. Wenn er rot wird, führe /compact oder /clear aus."
+          "Wie voll der Kontext der Unterhaltung ist, mit verwendeten/gesamten Tokens. Grün < 50 %, gelb < 80 %, rot ab 80 %. Wenn er rot wird, führe /compact oder /clear aus.",
+          "ctx"
         ],
         [
           "5h ███░░ N% ↻",
-          "Nutzung des 5-Stunden-Limits deines Abonnements und Countdown bis zur Erneuerung (↻jetzt = bereits erneuert). Dieselben Farben wie ctx."
+          "Nutzung des 5-Stunden-Limits deines Abonnements und Countdown bis zur Erneuerung (↻jetzt = bereits erneuert). Dieselben Farben wie ctx.",
+          "limit-5h"
         ],
         [
           "7d ███░░ N% ↻",
-          "Nutzung des Wochenlimits und Countdown bis zur Erneuerung. Dieselben Farben wie ctx."
+          "Nutzung des Wochenlimits und Countdown bis zur Erneuerung. Dieselben Farben wie ctx.",
+          "limit-7d"
         ],
         [
           "$N.NN",
-          "Kosten der Sitzung. Grün < 1 $, gelb < 5 $, rot ab 5 $."
+          "Kosten der Sitzung. Grün < 1 $, gelb < 5 $, rot ab 5 $.",
+          "cost"
         ],
         [
           "≈$N.NN",
-          "Abo-Modus (Claude Code meldet deine Nutzungslimits): Die Kosten sind nur der API-Gegenwert, kein Geld, das du zahlst. Deshalb sind sie abgeblendet, ohne Farben und ohne $/h-Rate."
+          "Abo-Modus (Claude Code meldet deine Nutzungslimits): Die Kosten sind nur der API-Gegenwert, kein Geld, das du zahlst. Deshalb sind sie abgeblendet, ohne Farben und ohne $/h-Rate.",
+          "cost-subscription"
         ],
         [
           "$N/h",
-          "Ausgabenrate pro Stunde, sichtbar nach 5 Min. Sitzung. Grau unter STATUSLINE_BURN_WARN (Standard 15 $/h), gelb ab dort, rot ab STATUSLINE_BURN_HIGH (Standard 30 $/h)."
+          "Ausgabenrate pro Stunde, sichtbar nach 5 Min. Sitzung. Grau unter STATUSLINE_BURN_WARN (Standard 15 $/h), gelb ab dort, rot ab STATUSLINE_BURN_HIGH (Standard 30 $/h).",
+          "burn"
         ],
         [
           "Cache N%",
-          "Anteil des Prompts, der aus dem Prompt-Cache kam, was günstiger ist. Grün ≥ 70 %, gelb ≥ 40 %, darunter rot."
+          "Anteil des Prompts, der aus dem Prompt-Cache kam, was günstiger ist. Grün ≥ 70 %, gelb ≥ 40 %, darunter rot.",
+          "cache"
         ],
         [
           "↺HH:MM",
-          "Uhrzeit, zu der der Prompt-Cache abläuft, wie Claude Code sie meldet (exakt, auch für den 1-Stunden-Cache). Ältere Claude-Code-Versionen melden sie nicht; dann wird sie als 5 Min. nach der letzten Aktivität geschätzt. Grün, solange mehr als 1 Min. bleibt, danach gelb."
+          "Uhrzeit, zu der der Prompt-Cache abläuft, wie Claude Code sie meldet (exakt, auch für den 1-Stunden-Cache). Ältere Claude-Code-Versionen melden sie nicht; dann wird sie als 5 Min. nach der letzten Aktivität geschätzt. Grün, solange mehr als 1 Min. bleibt, danach gelb.",
+          "cache-expiry"
         ],
         [
           "abgel. HH:MM",
-          "In Rot: Der Prompt-Cache ist zu dieser Uhrzeit abgelaufen. Der nächste Prompt muss ihn neu aufbauen, was mehr kostet (siehe Warnzeile)."
+          "In Rot: Der Prompt-Cache ist zu dieser Uhrzeit abgelaufen. Der nächste Prompt muss ihn neu aufbauen, was mehr kostet (siehe Warnzeile).",
+          "cache-expired"
         ],
         [
           "↓N ↑N",
-          "Aufgelaufene Tokens: ↓ gelesen (Eingabe) und ↑ geschrieben (Ausgabe)."
+          "Aufgelaufene Tokens: ↓ gelesen (Eingabe) und ↑ geschrieben (Ausgabe).",
+          "tokens"
         ],
         [
           "⏱",
-          "Dauer der Sitzung."
+          "Dauer der Sitzung.",
+          "duration"
         ],
         [
           "+N -N",
-          "In der Sitzung hinzugefügte (grün) und gelöschte (rot) Codezeilen."
+          "In der Sitzung hinzugefügte (grün) und gelöschte (rot) Codezeilen.",
+          "lines"
         ]
       ]
     },
@@ -146,7 +173,8 @@
       "rows": [
         [
           "Cache abgelaufen: …",
-          "Erscheint zwischen Zeile 2 und 3, wenn der Cache abgelaufen und der Kontext groß ist (≥ 50k Tokens). Der nächste Prompt baut ihn komplett neu auf; die geschätzten Kosten werden angezeigt. Vorher /compact auszuführen macht es günstiger."
+          "Erscheint zwischen Zeile 2 und 3, wenn der Cache abgelaufen und der Kontext groß ist (≥ 50k Tokens). Der nächste Prompt baut ihn komplett neu auf; die geschätzten Kosten werden angezeigt. Vorher /compact auszuführen macht es günstiger.",
+          "warning"
         ]
       ]
     },
@@ -155,39 +183,48 @@
       "rows": [
         [
           "Δ",
-          "Liste aller gegenüber HEAD geänderten Dateien. Cmd+Klick auf eine Datei zeigt ihren Diff im Browser."
+          "Liste aller gegenüber HEAD geänderten Dateien. Cmd+Klick auf eine Datei zeigt ihren Diff im Browser.",
+          "files"
         ],
         [
           "M",
-          "Geändert."
+          "Geändert.",
+          "status-m"
         ],
         [
           "A",
-          "Hinzugefügt (staged)."
+          "Hinzugefügt (staged).",
+          "status-a"
         ],
         [
           "D",
-          "Gelöscht."
+          "Gelöscht.",
+          "status-d"
         ],
         [
           "R",
-          "Umbenannt."
+          "Umbenannt.",
+          "status-r"
         ],
         [
           "U",
-          "Konflikt."
+          "Konflikt.",
+          "status-u"
         ],
         [
           "?",
-          "Neu, nicht verfolgt."
+          "Neu, nicht verfolgt.",
+          "status-new"
         ],
         [
           "+N weitere",
-          "Erscheint, wenn es mehr geänderte Dateien gibt als STATUSLINE_MAX_FILES. Cmd+Klick öffnet die Seite mit allen."
+          "Erscheint, wenn es mehr geänderte Dateien gibt als STATUSLINE_MAX_FILES. Cmd+Klick öffnet die Seite mit allen.",
+          "more"
         ],
         [
           "Δ 23 · M12 A3 …",
-          "Zählmodus: die Gesamtzahl und wie viele Dateien pro Status. Cmd+Klick öffnet die Seite mit allen."
+          "Zählmodus: die Gesamtzahl und wie viele Dateien pro Status. Cmd+Klick öffnet die Seite mit allen.",
+          "count"
         ]
       ]
     },
@@ -196,39 +233,53 @@
       "rows": [
         [
           "Fehlende Angaben",
-          "Was Claude Code nicht meldet (zum Beispiel die 5h/7d-Limits ohne Abonnement), wird einfach nicht angezeigt."
+          "Was Claude Code nicht meldet (zum Beispiel die 5h/7d-Limits ohne Abonnement), wird einfach nicht angezeigt.",
+          "missing"
         ],
         [
           "Links und Token",
-          "Links enthalten ein geheimes Token. Teile sie nicht und füge sie nicht in Screenshots ein. Wenn einer nicht mehr funktioniert (403), klicke auf einen aktuellen Link in der Leiste."
+          "Links enthalten ein geheimes Token. Teile sie nicht und füge sie nicht in Screenshots ein. Wenn einer nicht mehr funktioniert (403), klicke auf einen aktuellen Link in der Leiste.",
+          "links-token"
         ],
         [
           "STATUSLINE_PORT",
-          "Port dieses lokalen Servers (Standard 8765)."
+          "Port dieses lokalen Servers (Standard 8765).",
+          "setting-port"
         ],
         [
           "STATUSLINE_FILES / STATUSLINE_MAX_FILES",
-          "Wie die Dateiliste angezeigt wird: full (alle), compact (Standard: die ersten STATUSLINE_MAX_FILES, standardmäßig 10, plus ein Link +N weitere), count (nur die Summen) oder off."
+          "Wie die Dateiliste angezeigt wird: full (alle), compact (Standard: die ersten STATUSLINE_MAX_FILES, standardmäßig 10, plus ein Link +N weitere), count (nur die Summen) oder off.",
+          "setting-files"
         ],
         [
           "STATUSLINE_BURN_WARN / STATUSLINE_BURN_HIGH",
-          "Ausgabenrate in USD pro Stunde, ab der $N/h gelb / rot wird (Standard 15 und 30; willkürlich, stelle ein, was für dich viel ist)."
+          "Ausgabenrate in USD pro Stunde, ab der $N/h gelb / rot wird (Standard 15 und 30; willkürlich, stelle ein, was für dich viel ist).",
+          "setting-burn"
         ],
         [
           "STATUSLINE_RECACHE_USD_PER_MTOK",
-          "Preis pro Million Tokens zur Schätzung der Kosten für den Cache-Neuaufbau. Standard ist der 5-Minuten-Cache-Schreibpreis des aktiven Modells laut Preisseite von Anthropic (platform.claude.com/docs/en/about-claude/pricing)."
+          "Preis pro Million Tokens zur Schätzung der Kosten für den Cache-Neuaufbau. Standard ist der 5-Minuten-Cache-Schreibpreis des aktiven Modells laut Preisseite von Anthropic (platform.claude.com/docs/en/about-claude/pricing).",
+          "setting-recache"
         ],
         [
           "STATUSLINE_BILLING",
-          "auto (Standard), api oder subscription. auto wählt Abo, wenn Claude Code Nutzungslimits meldet (Pro/Max-Tarife), sonst api; setze es, um einen Modus zu erzwingen. Im Abo-Modus wird ein kalter Cache als Nutzungslimit statt als Geld angegeben."
+          "auto (Standard), api oder subscription. auto wählt Abo, wenn Claude Code Nutzungslimits meldet (Pro/Max-Tarife), sonst api; setze es, um einen Modus zu erzwingen. Im Abo-Modus wird ein kalter Cache als Nutzungslimit statt als Geld angegeben.",
+          "setting-billing"
         ],
         [
           "STATUSLINE_LANG",
-          "Sprache der Leiste und dieser Seite: en, es, fr, pt oder de. Sie wird beim Ausführen von install.sh gewählt; ändere sie mit ./install.sh --lang fr oder erzwinge eine andere mit dieser Variable."
+          "Sprache der Leiste und dieser Seite: en, es, fr, pt oder de. Sie wird beim Ausführen von install.sh gewählt; ändere sie mit ./install.sh --lang fr oder erzwinge eine andere mit dieser Variable.",
+          "setting-lang"
+        ],
+        [
+          "STATUSLINE_LINKS",
+          "on (Standard) oder off. Mit on öffnet Cmd+Klick auf einen Teil der Leiste (Kontext, Limits, Kosten, Cache, Dateizähler …) diese Seite bei der passenden Erklärung. Mit off bleibt nur der Link ⓘ Hilfe.",
+          "setting-links"
         ],
         [
           "Probleme",
-          "Führe ./statusline.sh --doctor im Installationsordner aus: Es prüft die Abhängigkeiten und zeigt Version und Statusordner an."
+          "Führe ./statusline.sh --doctor im Installationsordner aus: Es prüft die Abhängigkeiten und zeigt Version und Statusordner an.",
+          "problems"
         ]
       ]
     }
