@@ -7,6 +7,9 @@ export LC_ALL=C
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Where the state is kept (token, language, repositories, server pid)
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/claude-code-statusline"
+
 case "${1:-}" in
   --version|-V)
     echo "claude-code-statusline $(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo unknown)"; exit 0 ;;
@@ -17,19 +20,33 @@ case "${1:-}" in
       if command -v "$c" >/dev/null 2>&1; then printf '  ✔ %s\n' "$c"; else printf '  ✖ %s (missing)\n' "$c"; fallo=1; fi
     done
     printf '  version: %s\n' "$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo unknown)"
-    printf '  state:   %s\n' "${XDG_STATE_HOME:-$HOME/.local/state}/claude-code-statusline"
+    printf '  state:   %s\n' "$STATE_DIR"
+    if [ -f "$STATE_DIR/private" ]; then printf '  private: on\n'; else printf '  private: off\n'; fi
     exit "$fallo" ;;
+  --private)
+    # Private mode removes every link from the bar (for screen sharing); the flag is a file in the state folder
+    case "${2:-status}" in
+      on)  mkdir -p "$STATE_DIR" && chmod 700 "$STATE_DIR" && : >"$STATE_DIR/private"; echo "private: on" ;;
+      off) rm -f "$STATE_DIR/private"; echo "private: off" ;;
+      status) if [ -f "$STATE_DIR/private" ]; then echo "private: on"; else echo "private: off"; fi ;;
+      *) echo "Usage: statusline.sh --private [on|off|status]" >&2; exit 2 ;;
+    esac
+    exit 0 ;;
   -h|--help)
-    echo "Usage: statusline.sh [--version|--doctor|--help]   (without arguments it reads the Claude Code JSON from stdin)"; exit 0 ;;
+    echo "Usage: statusline.sh [--version|--doctor|--private on|off|status|--help]   (without arguments it reads the Claude Code JSON from stdin)"; exit 0 ;;
 esac
 
 input=$(cat)
 
-# Where the state is kept (token, server pid)
-STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/claude-code-statusline"
 PORT="${STATUSLINE_PORT:-8765}"
 mkdir -p "$STATE_DIR" && chmod 700 "$STATE_DIR"
-# Random token (readable only by you) that the server requires on every request
+# Random token (readable only by you) that the server requires on every request but the fixed help page. It is replaced when it is
+# older than STATUSLINE_TOKEN_TTL_HOURS (default 24, 0 = never), so a leaked link stops working after that.
+token_ttl="${STATUSLINE_TOKEN_TTL_HOURS:-24}"; [[ "$token_ttl" =~ ^[0-9]+$ ]] || token_ttl=24
+if [ -s "$STATE_DIR/token" ] && [ "$token_ttl" -gt 0 ]; then
+  tmt=$(stat -c %Y "$STATE_DIR/token" 2>/dev/null || stat -f %m "$STATE_DIR/token" 2>/dev/null)
+  if [[ "$tmt" =~ ^[0-9]+$ ]] && [ $(( $(date +%s) - tmt )) -ge $(( token_ttl * 3600 )) ]; then rm -f "$STATE_DIR/token"; fi
+fi
 if [ ! -s "$STATE_DIR/token" ]; then
   # od reads exactly 16 bytes and ends: no endless pipelines (tr -dc over /dev/urandom hangs if SIGPIPE is ignored)
   ( umask 077; od -An -N16 -tx1 /dev/urandom | tr -d ' \n' >"$STATE_DIR/token" )
@@ -117,12 +134,17 @@ CYAN=$'\033[36m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'
 MAG=$'\033[35m'; BLUE=$'\033[34m'
 sep="${DIM} │ ${R}"
 
-# Link a part of the bar to its row in the help page (Cmd+click): hl <row id> <text>.
-# STATUSLINE_LINKS=off leaves plain text. The text on screen is the same either way.
+# Links. In private mode (./statusline.sh --private on) there is none: every link becomes plain text.
+private=0; [ -f "$STATE_DIR/private" ] && private=1
+olink() {   # olink <url> <text>: an OSC 8 link (Cmd+click), or just the text in private mode
+  if [ "$private" = 1 ]; then printf '%s' "$2"; else printf '\033]8;;%s\a%s\033]8;;\a' "$1" "$2"; fi
+}
+# The help page is a fixed legend, so its links carry no token. hl <row id> <text> links a part of the bar to
+# its row (Cmd+click); STATUSLINE_LINKS=off leaves plain text. The text on screen is the same either way.
 links="${STATUSLINE_LINKS:-on}"
+HELP_URL="http://127.0.0.1:${PORT}/help"
 hl() {
-  if [ "$links" = off ] || [ -z "$TOKEN" ]; then printf '%s' "$2"; return; fi
-  printf '\033]8;;http://127.0.0.1:%s/help?t=%s#%s\a%s\033]8;;\a' "$PORT" "$TOKEN" "$1" "$2"
+  if [ "$links" = off ]; then printf '%s' "$2"; else olink "${HELP_URL}#$1" "$2"; fi
 }
 
 # 12345 -> 12.3k, 1234567 -> 1.2M
@@ -217,12 +239,20 @@ if [ -n "$dir" ]; then
     # Local diff server (127.0.0.1, read-only): started on its own if it is not running
     ensure_server
     top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
-    # Register the repository: the server serves only repositories listed here (one per line, private file)
-    if [ -n "$top" ] && [[ "$top" != *$'\n'* ]] && ! grep -qxF -- "$top" "$STATE_DIR/repos" 2>/dev/null; then
-      ( umask 077; printf '%s\n' "$top" >>"$STATE_DIR/repos" )
+    # Register the repository: the server serves only repositories listed in `repos`, one `id<TAB>path` per line
+    # (private file). Links carry the short id, so they show neither the path nor your user name.
+    repo_id=""
+    if [ -n "$top" ] && [[ "$top" != *$'\n'* ]] && [[ "$top" != *$'\t'* ]]; then
+      repo_id=$(P="$top" awk -F'\t' '$2 == ENVIRON["P"] {print $1; exit}' "$STATE_DIR/repos" 2>/dev/null)
+      if [ -z "$repo_id" ]; then
+        repo_id=$(printf '%s' "$top" | cksum | cut -d' ' -f1)
+        # an id already used by another path: add a letter until it is free
+        while I="$repo_id" awk -F'\t' '$1 == ENVIRON["I"] {f = 1} END {exit !f}' "$STATE_DIR/repos" 2>/dev/null; do repo_id="${repo_id}a"; done
+        ( umask 077; printf '%s\t%s\n' "$repo_id" "$top" >>"$STATE_DIR/repos" )
+      fi
     fi
     enc() { local x="$1"; x="${x//%/%25}"; x="${x// /%20}"; x="${x//#/%23}"; x="${x//\?/%3F}"; x="${x//&/%26}"; printf '%s' "$x"; }
-    base="http://127.0.0.1:${PORT}/?t=${TOKEN}&d=$(enc "$top")"
+    base="http://127.0.0.1:${PORT}/?t=${TOKEN}&r=${repo_id}"
     # Line 3+: every file changed against HEAD (alphabetical, stable order), wrapped at ~110 columns
     if [ $((n_s + n_m + n_u + n_c)) -gt 0 ] && [ "$files_mode" != off ]; then
       width=$(( $(term_width) - 4 )); cur_len=0
@@ -250,7 +280,7 @@ if [ -n "$dir" ]; then
         if [ "$cur_len" -gt 2 ] && [ $((cur_len + item_len)) -gt "$width" ]; then
           files_line+=$'\n'"  "; cur_len=2
         fi
-        files_line+="${mark} "$'\033]8;;'"${base}#$(enc "$f")"$'\a'"${f}"$'\033]8;;\a'"  "; cur_len=$((cur_len + item_len))
+        files_line+="${mark} $(olink "${base}#$(enc "$f")" "$f")  "; cur_len=$((cur_len + item_len))
       done < <(git -C "$dir" status --porcelain -uall 2>/dev/null)
       if [ "$files_mode" = count ]; then
         # One line: the total and how many files per status, all of it a link to the full page
@@ -261,11 +291,11 @@ if [ -n "$dir" ]; then
         [ "$cnt_R" -gt 0 ] && files_line+=" ${CYAN}R${cnt_R}${R}"
         [ "$cnt_U" -gt 0 ] && files_line+=" ${RED}U${cnt_U}${R}"
         [ "$cnt_Q" -gt 0 ] && files_line+=" ${DIM}?${cnt_Q}${R}"
-        files_line=$'\033]8;;'"${base}"$'\a'"${files_line}"$'\033]8;;\a'
+        files_line=$(olink "$base" "$files_line")
       elif [ "$total" -gt "$listed" ]; then
         # Hidden files: a link that opens the page with all of them
         more_tag='{n}'
-        files_line+=$'\033]8;;'"${base}"$'\a'"${DIM}${L_MORE//$more_tag/$((total - listed))}${R}"$'\033]8;;\a'
+        files_line+=$(olink "$base" "${DIM}${L_MORE//$more_tag/$((total - listed))}${R}")
       fi
     fi
   fi
@@ -279,7 +309,8 @@ fi
 [ -n "$vim" ] && l1+="${sep}${DIM}${vim}${R}"
 # ⓘ: link to the bar legend (served by diffserver.py)
 if [ -n "$l1" ]; then
-  l1+=" "$'\033]8;;'"http://127.0.0.1:${PORT}/help?t=${TOKEN}"$'\a'"${DIM} ${L_HELP} ${R}"$'\033]8;;\a'
+  l1+=" $(olink "$HELP_URL" "${DIM} ${L_HELP} ${R}")"
+  [ "$private" = 1 ] && l1+=" ${DIM}🔒${R}"
 fi
 
 # ---------- Line 2: usage ----------

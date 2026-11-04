@@ -18,7 +18,7 @@ bash tests/test_statusline.sh                # full bar with temporary state and
 bash tests/test_install.sh                   # installer: language detection, idempotent install, uninstall
 ./scripts/check-version.sh                   # VERSION consistent with CHANGELOG
 ```
-If you touch the server, these behaviours **must not change**: no token → 403, wrong token → 403, foreign `Host` → 403 even with a valid token, file names escaped in the HTML.
+If you touch the server, these behaviours **must not change**: no token → 403 and wrong token → 403 for everything except the fixed `/help` page, foreign `Host` → 403 even with a valid token (also for `/help`), an unregistered repository id → 400, file names escaped in the HTML.
 Every fixed bug should come with a test that fails without the fix.
 
 ## Translations

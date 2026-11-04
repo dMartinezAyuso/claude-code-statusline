@@ -4,7 +4,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and ver
 Security changes are marked **[security]**.
 
 ## [Unreleased]
+### Security
+- **[security]** The help page no longer needs the token (it is a fixed legend with nothing of yours in it; the `Host` check stays). The links on the parts of the bar and `ⓘ help` carry nothing secret, so hovering over them or a screenshot reveals nothing.
+- **[security]** The links to files carry a short repository id (`r=`) instead of the absolute path (`d=`), so they no longer show your user name or your folders. `d=` is not accepted any more; the `repos` registry now holds `id<TAB>path` lines (old lines are ignored and re-registered).
+- **[security]** The secret token is replaced when it is older than `STATUSLINE_TOKEN_TTL_HOURS` (default 24, `0` = never), so a leaked link stops working. The server already read the token on every request, so nothing needs restarting.
 ### Added
+- Private mode: `./statusline.sh --private on|off|status` removes every link from the bar for screen sharing (a 🔒 shows it is on); `--doctor` reports it.
 - Each part of the bar (context, limits, cost, `$/h`, cache and its expiry, tokens, duration, lines, the file counters, the PR and the cache warning) is a link: Cmd+click opens the help page at the explanation of that part, highlighted. `STATUSLINE_LINKS=off` removes them and keeps `ⓘ help`.
 - Every row of the legend has a stable id, identical in all languages; a test checks that every link of the bar points to an existing row.
 - Billing mode: the bar tells an API account (the cost is real money) from a subscription (the cost is only the API-equivalent value). It is detected from the usage limits that Claude Code reports, and `STATUSLINE_BILLING=auto|api|subscription` forces it. With a subscription the cost is dimmed with `≈`, has no colors and no `$/h` rate, and the cache warning refers to the usage limit instead of dollars. Documented in the README and the help page, translated in all five languages.

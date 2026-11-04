@@ -238,7 +238,7 @@
         ],
         [
           "Links and the token",
-          "Links carry a secret token. Do not share them or paste them in screenshots. If one stops working (403), click a fresh link from the bar.",
+          "Links to files carry a secret token and the short id of the repository; links to this help page carry nothing secret. Do not share the file links or paste them in screenshots. If one stops working (403), the token was replaced: click a fresh link from the bar.",
           "links-token"
         ],
         [
@@ -275,6 +275,16 @@
           "STATUSLINE_LINKS",
           "on (default) or off. With on, Cmd+click on a part of the bar (context, limits, cost, cache, file counters…) opens this page at its explanation. With off only the ⓘ help link is left.",
           "setting-links"
+        ],
+        [
+          "STATUSLINE_TOKEN_TTL_HOURS",
+          "Hours after which the secret token of the file links is replaced by a new one (default 24, 0 = never). A link that was copied or photographed stops working after that.",
+          "setting-token-ttl"
+        ],
+        [
+          "statusline.sh --private on",
+          "Removes every link from the bar until you run --private off (a 🔒 shows that it is on). Use it before sharing your screen. --private status tells you the current state.",
+          "private-mode"
         ],
         [
           "Problems",

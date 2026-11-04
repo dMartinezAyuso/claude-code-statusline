@@ -93,7 +93,7 @@ class Languages(unittest.TestCase):
         # The environment variable names must stay identical in every language
         for c in codes():
             blob = json.dumps(load(c), ensure_ascii=False)
-            for name in ("STATUSLINE_PORT", "STATUSLINE_LANG", "STATUSLINE_RECACHE_USD_PER_MTOK", "STATUSLINE_BURN_WARN", "STATUSLINE_FILES", "STATUSLINE_MAX_FILES", "STATUSLINE_BILLING", "STATUSLINE_LINKS"):
+            for name in ("STATUSLINE_PORT", "STATUSLINE_LANG", "STATUSLINE_RECACHE_USD_PER_MTOK", "STATUSLINE_BURN_WARN", "STATUSLINE_FILES", "STATUSLINE_MAX_FILES", "STATUSLINE_BILLING", "STATUSLINE_LINKS", "STATUSLINE_TOKEN_TTL_HOURS"):
                 with self.subTest(code=c, name=name):
                     self.assertIn(name, blob)
 

@@ -15,7 +15,7 @@
 - [ ] If I change what the bar shows: I updated the legend (`sections` in every `lang/*.json`, with a row `id`), linked the part with `hl` and updated the README
 - [ ] I add no external dependencies
 - [ ] There are no secrets, tokens or personal paths in the diff
-- [ ] If I touch `diffserver.py`: requests without a token or with a foreign `Host` still get 403
+- [ ] If I touch `diffserver.py`: requests without a token (except `/help`) or with a foreign `Host` still get 403, and unregistered repository ids still get 400
 
 ## How you tested it
 <!-- Operating system, terminal, Claude Code version -->

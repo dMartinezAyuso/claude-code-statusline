@@ -8,7 +8,7 @@ Use the **[GitHub private advisory](https://github.com/dMartinezAyuso/claude-cod
 This is a personal project with no guaranteed deadlines; I try to reply within a few days and coordinate disclosure with you.
 
 ## Threat model
-It protects against **malicious web pages** trying to read your diffs through `127.0.0.1` (token + `Host` validation), and it limits what a **leaked link** can read: the server only serves repositories that the bar has registered (the ones you use it in), never an arbitrary path.
+It protects against **malicious web pages** trying to read your diffs through `127.0.0.1` (token + `Host` validation), and it limits what a **leaked link** can read: the server only serves repositories that the bar has registered (the ones you use it in), identified by a short id (never a path), and the secret token in the file links is replaced every 24 hours. The links to the fixed help page carry no secret. `./statusline.sh --private on` removes every link for presentations.
 It does **not** protect against another user with access to your account or your machine: the token is in a file owned by your user and in the terminal URLs.
 
 ## Supply chain measures

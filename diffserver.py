@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Local server (127.0.0.1 only, read-only) that shows the diff of every changed file
-of a git repo. Usage: http://127.0.0.1:8765/?t=<token>&d=<repo path>#<file>"""
+of a git repo. Usage: http://127.0.0.1:8765/?t=<token>&r=<repository id>#<file>"""
 import hmac
 import html
 import json
@@ -59,17 +59,22 @@ except OSError:
     VERSION = "unknown"
 
 
-def registered_repo(requested):
-    """The registry entry equal to `requested` ("" if there is none). statusline.sh adds the top
-    level of every repository it runs in to the `repos` file of the state folder, one per line."""
+def registered_repo(repo_id):
+    """The path registered under `repo_id` ("" if there is none). statusline.sh adds a line
+    `<short id><TAB><top level of the repository>` to the `repos` file of the state folder for every
+    repository it runs in. The id is what travels in links, so they show neither a path nor a username;
+    the path always comes from the registry, never from the request."""
+    if not re.fullmatch(r"[0-9a-z]{1,16}", repo_id or ""):
+        return ""
     try:
         with open(os.path.join(STATE, "repos"), encoding="utf-8") as f:
-            known = f.read().splitlines()
+            lines = f.read().splitlines()
     except OSError:
         return ""
-    for entry in known:
-        if entry and entry == requested:
-            return entry
+    for line in lines:
+        known_id, tab, path = line.partition("\t")
+        if tab and path and known_id == repo_id:
+            return path
     return ""
 
 
@@ -265,6 +270,10 @@ class H(BaseHTTPRequestHandler):
         if self.headers.get("Host", "").lower() not in VALID_HOSTS:
             self.deny(403, b"host not allowed")
             return
+        # The help page is a fixed legend with nothing of yours in it, so the links to it carry no token
+        if urlparse(self.path).path == "/help":
+            self.respond(help_page())
+            return
         q = parse_qs(urlparse(self.path).query)
         # Secret token: without it no website can read your diffs even if it guesses the port
         expected = expected_token()
@@ -272,16 +281,13 @@ class H(BaseHTTPRequestHandler):
         if not expected or not hmac.compare_digest(given.encode(), expected.encode()):
             self.deny(403, b"invalid token")
             return
-        if urlparse(self.path).path == "/help":
-            self.respond(help_page())
-            return
         # Only repositories the status bar has registered are served, so a leaked link cannot be
         # used to read the changes of any other repository on the disk. `repo` is the entry of the
         # registry that equals the request, never the request itself.
-        repo = registered_repo((q.get("d") or [""])[0])
+        repo = registered_repo((q.get("r") or [""])[0])
         top = git(repo, "rev-parse", "--show-toplevel").strip() if repo and os.path.isdir(repo) else ""
         if not top:
-            self.deny(400, b"d= must be a repository the status bar knows: open the link from the bar")
+            self.deny(400, b"r= must be a repository the status bar knows: open the link from the bar")
             return
         nonce = secrets.token_urlsafe(16)
         self.respond(diff_page(top, nonce), nonce)

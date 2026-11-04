@@ -10,7 +10,7 @@ A custom 3-line status bar for [Claude Code](https://claude.com/claude-code):
 2. Context · 5h/7d usage limits with countdown · cost (and $/h rate with an API account, see [Subscription or API](#subscription-or-api)) · prompt cache with expiry time · tokens · duration · lines
 3. The files changed against `HEAD`: the first 10, then a `+N more` link when there are more (see [Changed files](#changed-files)). **Cmd+click** on a file opens its diff in the browser.
 
-**Cmd+click on any part of the bar** (context, limits, cost, cache, tokens, the file counters…) opens the help page right at the explanation of that part, highlighted. The `ⓘ help` link opens the whole legend, with every symbol, color and setting. The parts are plain links, so terminals may underline them; set `STATUSLINE_LINKS=off` to keep only `ⓘ help`.
+**Cmd+click on any part of the bar** (context, limits, cost, cache, tokens, the file counters…) opens the help page right at the explanation of that part, highlighted. The `ⓘ help` link opens the whole legend, with every symbol, color and setting. The parts are plain links, so terminals may underline them; set `STATUSLINE_LINKS=off` to keep only `ⓘ help`. These links go to the help page, which is a fixed legend: they carry **nothing secret** (see [Privacy](#privacy)).
 
 ### Prompt cache indicator
 
@@ -80,7 +80,7 @@ The page that opens (**Cmd+click** on a file or on `+N more`) lets you fold what
 - With more than 20 changed files the page starts folded; opening a file from the bar (or from the list at the top) unfolds just that one.
 - What you folded is remembered per repository in your browser.
 
-The page has a single small script, allowed by a one-time token, and it contains none of your repository data (see [Security](#security)).
+The page has a single small script, allowed by a one-time nonce, and it contains none of your repository data (see [Security](#security)).
 
 ## Languages
 
@@ -99,6 +99,7 @@ All settings are optional environment variables:
 | Variable | Default | What it does |
 |---|---|---|
 | `STATUSLINE_PORT` | `8765` | Port of the local diff server (always bound to `127.0.0.1`). |
+| `STATUSLINE_TOKEN_TTL_HOURS` | `24` | Hours after which the secret token of the file links is replaced (`0` = never). |
 | `STATUSLINE_LINKS` | `on` | `on` or `off`: whether each part of the bar links to its row in the help page. |
 | `STATUSLINE_BILLING` | `auto` | `auto`, `api` or `subscription`: how the cost is presented (see [Subscription or API](#subscription-or-api)). |
 | `STATUSLINE_FILES` | `compact` | How the changed-file list is shown: `full`, `compact`, `count` or `off`. |
@@ -114,7 +115,7 @@ All settings are optional environment variables:
 
 - Run `./statusline.sh --doctor`: it checks the dependencies and prints the version and the state folder.
 - A link answers `400` ("open the link from the bar"): the repository is not registered, which happens if you deleted the `repos` file or typed the address by hand. Click a link from the bar; the repository registers itself when the bar runs in it.
-- A link answers `403`: the token changed or the link is stale. Click a fresh link from the bar.
+- A link to a file answers `403`: the secret token was replaced (it is, every 24 hours by default) or the link is stale. Click a fresh link from the bar.
 - The server does not start: another program may be using port `8765`; set `STATUSLINE_PORT` to a free one.
 - Nothing appears after installing: restart Claude Code, and check that `statusLine` in `settings.json` points to `statusline.sh`.
 - The parts of the bar are underlined or I do not want them to be clickable: set `STATUSLINE_LINKS=off` (the `ⓘ help` link stays).
@@ -139,8 +140,8 @@ Before updating, read the [CHANGELOG](CHANGELOG.md): security changes are marked
 - **Pin a version** (`git checkout vX.Y.Z`) if you prefer stability; follow `main` if you want the latest.
 - **Read the diff before updating** (`git diff HEAD..origin/main`): this script runs every few seconds with your permissions and starts a server. It is little code; review it as you would any third-party script.
 - **Do not bind the port to an IP other than `127.0.0.1`** and do not expose the server through tunnels or proxies: it would serve your uncommitted code to whoever reaches it.
-- **Do not share screenshots or copy links from the bar** (they carry the token in the URL). If you do, rotate the token (below). Some terminals (VS Code, WezTerm, Kitty…) show a link's address when you hover over it: do not hover over the bar while sharing your screen, or set `STATUSLINE_LINKS=off` and keep only the `ⓘ help` link.
-- **Rotate the token** if you suspect it leaked: `rm ~/.local/state/claude-code-statusline/token`; a new one is generated on the next refresh and the server reads it on every request.
+- **Before sharing your screen, run `./statusline.sh --private on`** and `--private off` afterwards. See [Privacy](#privacy) for what the links reveal. Do not share screenshots or copy the links to files from the bar (they carry the secret token).
+- **Rotate the token now** if you suspect it leaked: `rm ~/.local/state/claude-code-statusline/token`; a new one is generated on the next refresh and the server reads it on every request. It is also replaced by itself every 24 hours (`STATUSLINE_TOKEN_TTL_HOURS`).
 - **To stop the server**: `pkill -f diffserver.py`; it restarts by itself when the bar is used again. To disable it completely, remove the statusline from `settings.json`.
 - **Customize in a fork or your own branch**, not on a cloned `main`, so `git pull` does not clash with your changes.
 
@@ -152,17 +153,33 @@ Worth knowing before installing:
 - That server is **read-only**: it runs `git status` / `git diff` and renders HTML. It writes nothing to your repos.
 - State is stored in `~/.local/state/claude-code-statusline/` (`XDG_STATE_HOME`): the token, the language, the list of repositories the bar has run in, and the server's pid.
 
+## Privacy
+
+The bar is made of links, and the address of a link can be seen: some terminals (VS Code, WezTerm, Kitty…) show it when you hover over the link, and a screenshot or a copied link keeps it. What each kind of link reveals:
+
+| Link | What is in its address |
+|---|---|
+| Parts of the bar and `ⓘ help` | `http://127.0.0.1:8765/help#cache`: nothing secret. The help page is a fixed legend and needs no token. |
+| Files, `+N more`, the file counts | The secret token and a short repository id such as `r=3012345678`. No path, no user name. |
+
+To limit the damage of an accidental leak:
+
+- **The token expires by itself**: it is replaced every 24 hours (`STATUSLINE_TOKEN_TTL_HOURS`, `0` to turn it off), so a link that was copied or photographed stops working. A tab with a diff that is a day old needs a fresh click from the bar.
+- **The repository id** is all that travels; the server looks up the path in its own registry. A leaked link can only reach repositories you use the bar in.
+- **Private mode for presentations**: `./statusline.sh --private on` removes every link from the bar (a 🔒 shows that it is on) until you run `--private off`. `--private status` tells you which it is.
+- `STATUSLINE_LINKS=off` removes only the links on the parts of the bar and keeps `ⓘ help` and the file links.
+
 ## Security
 
 The server exposes the uncommitted code of your repos, so it is protected:
 
 - It only listens on `127.0.0.1`.
-- A random 128-bit **secret token** (file with `600` permissions, folder `700`), required on every request and compared in constant time. A random website cannot read your diffs even if it guesses the port.
+- A random 128-bit **secret token** (file with `600` permissions, folder `700`), required on every request except the fixed help page, and compared in constant time. A random website cannot read your diffs even if it guesses the port. The token is replaced every 24 hours by default.
 - **`Host` validation**: any request whose `Host` is not `127.0.0.1:<port>` or `localhost:<port>` is rejected (defence against DNS rebinding).
 - `Content-Security-Policy`, `X-Content-Type-Options` and `Referrer-Policy` headers; content is escaped with `html.escape`. The help page has no script. The diff page has one script, allowed only by a random nonce generated for each response (`script-src 'nonce-…'`), and it holds no repository data: it only folds, unfolds and filters the blocks the server already rendered.
-- **Only repositories you use the bar in are served.** `statusline.sh` registers the top level of each repository it runs in (file `repos` in the state folder, permissions `600`) and the server refuses any other `d=` with 400. So even if a link leaks, it cannot be used to read the changes of other repositories on your disk. Delete the `repos` file to forget them; they register again the next time the bar runs in them.
+- **Only repositories you use the bar in are served.** `statusline.sh` registers the top level of each repository it runs in (file `repos` in the state folder, permissions `600`) and the server refuses any other repository id (`r=`) with 400. Links carry a short id, never the path. So even if a link leaks, it cannot be used to read the changes of other repositories on your disk. Delete the `repos` file to forget them; they register again the next time the bar runs in them.
 
-The token is in the URL of the links, so anyone with access to your terminal session could see it: this is a local threat model meant to prevent access from the browser, not against another user with access to your account. To rotate it, delete `~/.local/state/claude-code-statusline/token` and restart the server (`pkill -f diffserver.py`).
+The token is in the URL of the links to files, so anyone with access to your terminal session could see it: this is a local threat model meant to prevent access from the browser, not against another user with access to your account. To rotate it right now, delete `~/.local/state/claude-code-statusline/token`; the server reads it on every request, so it does not need restarting.
 
 Found a vulnerability? Use the [private advisory](https://github.com/dMartinezAyuso/claude-code-statusline/security/advisories/new) (see [SECURITY.md](SECURITY.md)), not a public issue.
 
