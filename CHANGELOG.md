@@ -4,6 +4,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and ver
 Security changes are marked **[security]**.
 
 ## [Unreleased]
+
+## [0.2.1] - 2026-11-04
 ### Changed
 - The in-bar help page (`/help`) is now complete: vim mode, `exp HH:MM`, the warning line in its own section, settings and troubleshooting tips.
 - README documents the prompt cache indicator, the configuration variables, troubleshooting and platform support.
