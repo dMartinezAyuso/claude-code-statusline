@@ -36,6 +36,22 @@ chk "token has 600 permissions"           '[ "$perm_f" = 600 ]'
 chk "state folder has 700 permissions" '[ "$perm_d" = 700 ]'
 
 wait_server
+# Repositories: the bar registers the ones it is used in, and the server serves only those
+top_repo=$(git -C "$TMP/repo" rev-parse --show-toplevel)
+chk "the bar registers the repository it runs in"      '[ "$(cat "$STATE/repos" 2>/dev/null)" = "$top_repo" ]'
+echo "$JSON" | timeout_run "$TMP/statusline.sh" >/dev/null 2>&1
+chk "and registers it only once"                       '[ "$(grep -c . "$STATE/repos")" = 1 ]'
+perm_r=$(stat -c %a "$STATE/repos" 2>/dev/null || stat -f %Lp "$STATE/repos")
+chk "the registry has 600 permissions"                 '[ "$perm_r" = 600 ]'
+git init -q "$TMP/unregistered" && echo secret >"$TMP/unregistered/s.txt"
+wait_server
+chk "the server serves the registered repository"      '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/?t=$(cat "$STATE/token")&d=$top_repo")" = 200 ]'
+chk "and refuses one the bar was never used in"        '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/?t=$(cat "$STATE/token")&d=$TMP/unregistered")" = 400 ]'
+nl_dir="$TMP/with
+newline"; git init -q "$nl_dir"; echo x >"$nl_dir/f.txt"
+echo "{\"model\":{\"display_name\":\"M\"},\"workspace\":{\"current_dir\":\"$nl_dir\"}}" | timeout_run "$TMP/statusline.sh" >/dev/null 2>&1
+chk "a path with a newline is never registered"        '[ "$(grep -c . "$STATE/repos")" = 1 ]'
+
 chk "the server answers 403 without a token" '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/help")" = 403 ]'
 chk "the server answers 200 with a token" '[ "$(curl -s --max-time 5 -o /dev/null -w %{http_code} "http://127.0.0.1:$STATUSLINE_PORT/help?t=$(cat "$STATE/token")")" = 200 ]'
 
