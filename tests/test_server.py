@@ -1,4 +1,4 @@
-"""Pruebas de seguridad y comportamiento de diffserver.py (solo biblioteca estándar)."""
+"""Security and behaviour tests for diffserver.py (standard library only)."""
 import http.client
 import importlib
 import os
@@ -9,33 +9,33 @@ import tempfile
 import threading
 import unittest
 
-RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TOKEN = "t0k3n-de-prueba"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TOKEN = "t0k3n-for-tests"
 
 
-def puerto_libre():
+def free_port():
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
 
-class ServidorBase(unittest.TestCase):
+class ServerBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory()
-        cls.puerto = puerto_libre()
-        os.makedirs(os.path.join(cls.tmp.name, "estado"))
-        with open(os.path.join(cls.tmp.name, "estado", "token"), "w") as f:
+        cls.port = free_port()
+        os.makedirs(os.path.join(cls.tmp.name, "state"))
+        with open(os.path.join(cls.tmp.name, "state", "token"), "w") as f:
             f.write(TOKEN)
-        os.environ["STATUSLINE_PORT"] = str(cls.puerto)
-        os.environ["STATUSLINE_STATE"] = os.path.join(cls.tmp.name, "estado")
-        sys.path.insert(0, RAIZ)
+        os.environ["STATUSLINE_PORT"] = str(cls.port)
+        os.environ["STATUSLINE_STATE"] = os.path.join(cls.tmp.name, "state")
+        sys.path.insert(0, ROOT)
         sys.modules.pop("diffserver", None)
         cls.mod = importlib.import_module("diffserver")
-        cls.srv = cls.mod.Servidor(("127.0.0.1", cls.puerto), cls.mod.H)
+        cls.srv = cls.mod.Server(("127.0.0.1", cls.port), cls.mod.H)
         threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
 
-        # Repo git de prueba con ficheros "difíciles"
+        # Test git repo with "tricky" files
         cls.repo = os.path.join(cls.tmp.name, "repo")
         os.makedirs(cls.repo)
         run = lambda *a: subprocess.run(["git", "-C", cls.repo, *a], check=True, capture_output=True)
@@ -43,13 +43,13 @@ class ServidorBase(unittest.TestCase):
         run("config", "user.email", "t@example.com")
         run("config", "user.name", "t")
         with open(os.path.join(cls.repo, "a.txt"), "w") as f:
-            f.write("uno\n")
+            f.write("one\n")
         run("add", "-A")
-        run("commit", "-q", "-m", "inicial")
+        run("commit", "-q", "-m", "initial")
         with open(os.path.join(cls.repo, "a.txt"), "w") as f:
-            f.write("dos\n")
-        cls.nombre_xss = "<img src=x onerror=alert(1)>.txt"
-        with open(os.path.join(cls.repo, cls.nombre_xss), "w") as f:
+            f.write("two\n")
+        cls.xss_name = "<img src=x onerror=alert(1)>.txt"
+        with open(os.path.join(cls.repo, cls.xss_name), "w") as f:
             f.write("<script>alert(1)</script>\n")
 
     @classmethod
@@ -58,104 +58,104 @@ class ServidorBase(unittest.TestCase):
         cls.srv.server_close()
         cls.tmp.cleanup()
 
-    def get(self, ruta, host=None):
-        c = http.client.HTTPConnection("127.0.0.1", self.puerto, timeout=15)
-        c.putrequest("GET", ruta, skip_host=True)
-        c.putheader("Host", f"127.0.0.1:{self.puerto}" if host is None else host)
+    def get(self, path, host=None):
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=15)
+        c.putrequest("GET", path, skip_host=True)
+        c.putheader("Host", f"127.0.0.1:{self.port}" if host is None else host)
         c.endheaders()
         r = c.getresponse()
-        cuerpo = r.read().decode(errors="replace")
+        body = r.read().decode(errors="replace")
         c.close()
-        return r, cuerpo
+        return r, body
 
 
-class Arranque(ServidorBase):
-    def test_arranque_no_hace_dns_inverso(self):
-        # Si volviera a llamarse a getfqdn, el arranque se bloquearía en entornos con DNS lento
-        original = socket.getfqdn
-        socket.getfqdn = lambda *a, **k: self.fail("el servidor no debe llamar a socket.getfqdn")
+class Startup(ServerBase):
+    def test_startup_does_no_reverse_dns(self):
+        # If getfqdn were called again, startup would block in environments with slow DNS
+        saved = socket.getfqdn
+        socket.getfqdn = lambda *a, **k: self.fail("the server must not call socket.getfqdn")
         try:
-            srv = self.mod.Servidor(("127.0.0.1", 0), self.mod.H)
+            srv = self.mod.Server(("127.0.0.1", 0), self.mod.H)
             srv.server_close()
         finally:
-            socket.getfqdn = original
+            socket.getfqdn = saved
 
 
-class Autenticacion(ServidorBase):
-    def test_sin_token_403(self):
-        self.assertEqual(self.get("/ayuda")[0].status, 403)
+class Authentication(ServerBase):
+    def test_no_token_403(self):
+        self.assertEqual(self.get("/help")[0].status, 403)
 
-    def test_token_incorrecto_403(self):
-        self.assertEqual(self.get("/ayuda?t=otro")[0].status, 403)
+    def test_wrong_token_403(self):
+        self.assertEqual(self.get("/help?t=otro")[0].status, 403)
 
-    def test_token_vacio_403(self):
-        self.assertEqual(self.get("/ayuda?t=")[0].status, 403)
+    def test_empty_token_403(self):
+        self.assertEqual(self.get("/help?t=")[0].status, 403)
 
-    def test_token_correcto_200(self):
-        self.assertEqual(self.get(f"/ayuda?t={TOKEN}")[0].status, 200)
+    def test_right_token_200(self):
+        self.assertEqual(self.get(f"/help?t={TOKEN}")[0].status, 200)
 
-    def test_diff_sin_token_no_filtra_nada(self):
-        r, cuerpo = self.get(f"/?d={self.repo}")
+    def test_diff_without_token_leaks_nothing(self):
+        r, body = self.get(f"/?d={self.repo}")
         self.assertEqual(r.status, 403)
-        self.assertNotIn("dos", cuerpo)
+        self.assertNotIn("two", body)
 
-    def test_sin_fichero_de_token_siempre_403(self):
-        os.rename(os.path.join(self.tmp.name, "estado", "token"), os.path.join(self.tmp.name, "estado", "token.bak"))
+    def test_missing_token_file_always_403(self):
+        os.rename(os.path.join(self.tmp.name, "state", "token"), os.path.join(self.tmp.name, "state", "token.bak"))
         try:
-            self.assertEqual(self.get("/ayuda?t=")[0].status, 403)
+            self.assertEqual(self.get("/help?t=")[0].status, 403)
         finally:
-            os.rename(os.path.join(self.tmp.name, "estado", "token.bak"), os.path.join(self.tmp.name, "estado", "token"))
+            os.rename(os.path.join(self.tmp.name, "state", "token.bak"), os.path.join(self.tmp.name, "state", "token"))
 
 
-class AntiRebinding(ServidorBase):
-    def test_host_ajeno_403_aunque_el_token_sea_bueno(self):
-        for host in ("evil.com", f"evil.com:{self.puerto}", f"127.0.0.1.evil.com:{self.puerto}", "", "127.0.0.1:1"):
+class AntiRebinding(ServerBase):
+    def test_foreign_host_403_even_with_valid_token(self):
+        for host in ("evil.com", f"evil.com:{self.port}", f"127.0.0.1.evil.com:{self.port}", "", "127.0.0.1:1"):
             with self.subTest(host=host):
-                self.assertEqual(self.get(f"/ayuda?t={TOKEN}", host=host)[0].status, 403)
+                self.assertEqual(self.get(f"/help?t={TOKEN}", host=host)[0].status, 403)
 
-    def test_localhost_permitido(self):
-        self.assertEqual(self.get(f"/ayuda?t={TOKEN}", host=f"localhost:{self.puerto}")[0].status, 200)
+    def test_localhost_allowed(self):
+        self.assertEqual(self.get(f"/help?t={TOKEN}", host=f"localhost:{self.port}")[0].status, 200)
 
 
-class Contenido(ServidorBase):
-    def test_cabeceras_de_seguridad(self):
-        r, _ = self.get(f"/ayuda?t={TOKEN}")
+class Content(ServerBase):
+    def test_security_headers(self):
+        r, _ = self.get(f"/help?t={TOKEN}")
         self.assertIn("default-src 'none'", r.getheader("Content-Security-Policy"))
         self.assertEqual(r.getheader("X-Content-Type-Options"), "nosniff")
         self.assertEqual(r.getheader("Referrer-Policy"), "no-referrer")
         self.assertEqual(r.getheader("Cache-Control"), "no-store")
 
-    def test_ayuda_muestra_version(self):
-        _, cuerpo = self.get(f"/ayuda?t={TOKEN}")
-        self.assertIn(self.mod.VERSION, cuerpo)
+    def test_help_shows_version(self):
+        _, body = self.get(f"/help?t={TOKEN}")
+        self.assertIn(self.mod.VERSION, body)
 
-    def test_directorio_que_no_es_repo_400(self):
+    def test_directory_that_is_not_a_repo_400(self):
         self.assertEqual(self.get(f"/?t={TOKEN}&d={self.tmp.name}")[0].status, 400)
 
-    def test_directorio_inexistente_400(self):
-        self.assertEqual(self.get(f"/?t={TOKEN}&d=/no/existe")[0].status, 400)
+    def test_missing_directory_400(self):
+        self.assertEqual(self.get(f"/?t={TOKEN}&d=/no/such/dir")[0].status, 400)
 
-    def test_diff_de_repo_ok(self):
-        r, cuerpo = self.get(f"/?t={TOKEN}&d={self.repo}")
+    def test_repo_diff_ok(self):
+        r, body = self.get(f"/?t={TOKEN}&d={self.repo}")
         self.assertEqual(r.status, 200)
-        self.assertIn("dos", cuerpo)
+        self.assertIn("two", body)
 
-    def test_nombres_de_fichero_se_escapan(self):
-        _, cuerpo = self.get(f"/?t={TOKEN}&d={self.repo}")
-        self.assertNotIn("<img src=x", cuerpo)
-        self.assertNotIn("<script>alert", cuerpo)
-        self.assertIn("&lt;img src=x", cuerpo)
+    def test_file_names_are_escaped(self):
+        _, body = self.get(f"/?t={TOKEN}&d={self.repo}")
+        self.assertNotIn("<img src=x", body)
+        self.assertNotIn("<script>alert", body)
+        self.assertIn("&lt;img src=x", body)
 
-    def test_diff_enorme_se_trunca(self):
-        grande = os.path.join(self.repo, "grande.txt")
-        with open(grande, "w") as f:
+    def test_huge_diff_is_truncated(self):
+        big = os.path.join(self.repo, "big.txt")
+        with open(big, "w") as f:
             f.write("x" * (self.mod.MAX_DIFF + 4096) + "\n")
         try:
-            r, cuerpo = self.get(f"/?t={TOKEN}&d={self.repo}")
+            r, body = self.get(f"/?t={TOKEN}&d={self.repo}")
             self.assertEqual(r.status, 200)
-            self.assertIn("diff truncado", cuerpo)
+            self.assertIn("diff truncated", body)
         finally:
-            os.remove(grande)
+            os.remove(big)
 
 
 if __name__ == "__main__":

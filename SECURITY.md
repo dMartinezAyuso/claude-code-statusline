@@ -1,19 +1,19 @@
-# Política de seguridad
+# Security policy
 
-## Versiones con soporte
-Solo la última versión publicada (última etiqueta / `main`). Los arreglos de seguridad salen como versión **parche** y se marcan **[seguridad]** en el [CHANGELOG](CHANGELOG.md).
+## Supported versions
+Only the latest published version (latest tag / `main`). Security fixes ship as a **patch** version and are marked **[security]** in the [CHANGELOG](CHANGELOG.md).
 
-## Cómo reportar una vulnerabilidad
-Usa el **[aviso privado de GitHub](https://github.com/dMartinezAyuso/claude-code-statusline/security/advisories/new)** (Security → Report a vulnerability). Por favor, no abras un issue público con los detalles hasta que haya arreglo.
-Es un proyecto personal sin plazos garantizados; intento responder en unos días y coordinar la publicación contigo.
+## How to report a vulnerability
+Use the **[GitHub private advisory](https://github.com/dMartinezAyuso/claude-code-statusline/security/advisories/new)** (Security → Report a vulnerability). Please do not open a public issue with the details until a fix exists.
+This is a personal project with no guaranteed deadlines; I try to reply within a few days and coordinate disclosure with you.
 
-## Modelo de amenaza
-Protege frente a **páginas web maliciosas** que intenten leer tus diffs a través de `127.0.0.1` (token + validación de `Host`).
-**No** protege frente a otro usuario con acceso a tu cuenta o a tu máquina: el token está en un fichero de tu usuario y en las URL de la terminal.
+## Threat model
+It protects against **malicious web pages** trying to read your diffs through `127.0.0.1` (token + `Host` validation).
+It does **not** protect against another user with access to your account or your machine: the token is in a file owned by your user and in the terminal URLs.
 
-## Medidas de la cadena de suministro
-- Sin dependencias externas (solo biblioteca estándar de Python y utilidades del sistema).
-- Acciones de GitHub fijadas por SHA, actualizadas por Dependabot.
-- Workflows con permisos mínimos (`contents: read`; solo la release tiene `contents: write`).
-- CodeQL semanal y en cada PR; secret scanning y push protection activados.
-- Cada release incluye `SHA256SUMS` del tarball.
+## Supply chain measures
+- No external dependencies (only the Python standard library and system utilities).
+- GitHub Actions pinned by SHA, updated by Dependabot.
+- Workflows with minimal permissions (`contents: read`; only the release has `contents: write`).
+- CodeQL weekly and on every PR; secret scanning and push protection enabled.
+- Each release includes a `SHA256SUMS` of the tarball.

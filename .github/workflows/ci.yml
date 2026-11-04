@@ -21,13 +21,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Sintaxis y shellcheck
+      - name: Syntax and shellcheck
         run: |
           bash -n statusline.sh install.sh scripts/*.sh tests/test_statusline.sh
           shellcheck -S warning statusline.sh install.sh scripts/*.sh tests/test_statusline.sh
-      - name: Compilar Python
+      - name: Compile Python
         run: python3 -m py_compile diffserver.py
-      - name: VERSION coherente con CHANGELOG
+      - name: VERSION consistent with CHANGELOG
         run: ./scripts/check-version.sh
 
   test:
@@ -37,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:   # 3.9 es el Python del sistema en macOS; Ubuntu ya no lo ofrece
+        include:   # 3.9 is the system Python on macOS; Ubuntu no longer offers it
           - { os: ubuntu-latest, python: "3.10" }
           - { os: ubuntu-latest, python: "3.13" }
           - { os: macos-latest, python: "3.9" }
@@ -49,11 +49,11 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: ${{ matrix.python }}
-      - name: Instalar jq (Linux)
+      - name: Install jq (Linux)
         if: runner.os == 'Linux'
         run: command -v jq || sudo apt-get install -y jq
-      - name: Pruebas del servidor
+      - name: Server tests
         run: python3 -m unittest discover -s tests -v
-      - name: Prueba de integración de la barra
+      - name: Bar integration test
         timeout-minutes: 3
         run: bash tests/test_statusline.sh

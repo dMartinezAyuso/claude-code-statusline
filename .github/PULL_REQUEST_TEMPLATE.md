@@ -1,20 +1,20 @@
-## Qué cambia y por qué
-<!-- Una o dos frases. Enlaza el issue si existe: Closes #123 -->
+## What changes and why
+<!-- One or two sentences. Link the issue if there is one: Closes #123 -->
 
-## Tipo de cambio
-- [ ] Corrección (patch)
-- [ ] Función nueva compatible (minor)
-- [ ] Cambio que rompe compatibilidad (major)
-- [ ] Seguridad
-- [ ] Documentación / CI
+## Type of change
+- [ ] Fix (patch)
+- [ ] New compatible feature (minor)
+- [ ] Breaking change (major)
+- [ ] Security
+- [ ] Documentation / CI
 
-## Lista de comprobación
-- [ ] `python3 -m unittest discover -s tests` y `bash tests/test_statusline.sh` pasan en local
-- [ ] He añadido o ajustado pruebas si toco el servidor o el instalador
-- [ ] He añadido una línea en `CHANGELOG.md` bajo `[Sin publicar]` (con **[seguridad]** si procede)
-- [ ] No añado dependencias externas
-- [ ] No hay secretos, tokens ni rutas personales en el diff
-- [ ] Si toco `diffserver.py`: siguen dando 403 las peticiones sin token y con `Host` ajeno
+## Checklist
+- [ ] `python3 -m unittest discover -s tests` and `bash tests/test_statusline.sh` pass locally
+- [ ] I added or adjusted tests if I touch the server or the installer
+- [ ] I added a line to `CHANGELOG.md` under `[Unreleased]` (with **[security]** if it applies)
+- [ ] I add no external dependencies
+- [ ] There are no secrets, tokens or personal paths in the diff
+- [ ] If I touch `diffserver.py`: requests without a token or with a foreign `Host` still get 403
 
-## Cómo lo has probado
-<!-- Sistema operativo, terminal, versión de Claude Code -->
+## How you tested it
+<!-- Operating system, terminal, Claude Code version -->

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Servidor local (solo 127.0.0.1, solo lectura) que muestra el diff de todos los ficheros
-cambiados de un repo git. Uso: http://127.0.0.1:8765/?t=<token>&d=<ruta repo>#<fichero>"""
+"""Local server (127.0.0.1 only, read-only) that shows the diff of every changed file
+of a git repo. Usage: http://127.0.0.1:8765/?t=<token>&d=<repo path>#<file>"""
 import hmac
 import html
 import os
@@ -9,15 +9,15 @@ import socketserver
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-PUERTO = int(os.environ.get("STATUSLINE_PORT", "8765"))
-ESTADO = os.environ.get("STATUSLINE_STATE") or os.path.join(
+PORT = int(os.environ.get("STATUSLINE_PORT", "8765"))
+STATE = os.environ.get("STATUSLINE_STATE") or os.path.join(
     os.environ.get("XDG_STATE_HOME") or os.path.expanduser("~/.local/state"), "claude-code-statusline")
-HOSTS_VALIDOS = {f"127.0.0.1:{PUERTO}", f"localhost:{PUERTO}"}
+VALID_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 
 
-def token_esperado():
+def expected_token():
     try:
-        with open(os.path.join(ESTADO, "token")) as f:
+        with open(os.path.join(STATE, "token")) as f:
             return f.read().strip()
     except OSError:
         return ""
@@ -37,14 +37,14 @@ pre{margin:0;overflow-x:auto}
 """
 
 
-MAX_DIFF = 512 * 1024   # bytes por fichero; más allá se trunca
-GIT_TIMEOUT = 10        # segundos por llamada a git
+MAX_DIFF = 512 * 1024   # bytes per file; anything beyond is truncated
+GIT_TIMEOUT = 10        # seconds per git call
 
 try:
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")) as _f:
         VERSION = _f.read().strip()
 except OSError:
-    VERSION = "desconocida"
+    VERSION = "unknown"
 
 
 def git(repo, *args):
@@ -56,15 +56,15 @@ def git(repo, *args):
     return r.stdout
 
 
-def diff_fichero(repo, estado, f):
-    if estado == "??":
+def file_diff(repo, status, f):
+    if status == "??":
         return git(repo, "diff", "--no-index", "--no-color", "--", "/dev/null", os.path.join(repo, f))
     return git(repo, "diff", "HEAD", "--no-color", "--", f)
 
 
-def pinta(texto):
+def render(text):
     out = []
-    for ln in texto.splitlines():
+    for ln in text.splitlines():
         c = "m"
         if ln.startswith("@@"):
             c = "h"
@@ -78,122 +78,122 @@ def pinta(texto):
     return "".join(out)
 
 
-# Leyenda de la barra de estado: (símbolo, significado). Se pinta en /ayuda.
-AYUDA = [
-    ("Línea 1 · modelo y git", [
-        ("Modelo (esfuerzo)", "Modelo activo y, entre paréntesis, el nivel de esfuerzo de razonamiento."),
-        ("⚡", "Modo rápido activado."),
-        ("🤖 nombre", "Estás dentro de un agente concreto."),
-        ("proyecto", "Carpeta de trabajo actual."),
-        ("⎇ rama", "Rama de git actual."),
-        ("↑N", "Commits locales que aún no has subido (push)."),
-        ("↓N", "Commits en remoto que aún no has bajado (pull)."),
-        ("●N", "Ficheros preparados para commit (staged)."),
-        ("✚N", "Ficheros modificados sin preparar."),
-        ("?N", "Ficheros nuevos sin seguimiento."),
-        ("✖N", "Ficheros con conflicto de merge."),
-        ("✔ limpio", "No hay ningún cambio pendiente."),
-        ("PR #N", "Pull request de la rama. Verde = aprobada, rojo = piden cambios, amarillo = pendiente."),
-        ("ⓘ", "Esta ayuda."),
+# Status bar legend: (symbol, meaning). Rendered at /help.
+HELP = [
+    ("Line 1 · model and git", [
+        ("Model (effort)", "Active model and, in parentheses, the reasoning effort level."),
+        ("⚡", "Fast mode on."),
+        ("🤖 name", "You are inside a specific agent."),
+        ("project", "Current working folder."),
+        ("⎇ branch", "Current git branch."),
+        ("↑N", "Local commits you have not pushed yet."),
+        ("↓N", "Remote commits you have not pulled yet."),
+        ("●N", "Files staged for commit."),
+        ("✚N", "Modified files that are not staged."),
+        ("?N", "New untracked files."),
+        ("✖N", "Files with a merge conflict."),
+        ("✔ clean", "No pending changes."),
+        ("PR #N", "The branch's pull request. Green = approved, red = changes requested, yellow = pending."),
+        ("ⓘ", "This help."),
     ]),
-    ("Línea 2 · consumo", [
-        ("ctx ███░░ N%", "Cuánto del contexto de la conversación está lleno, con tokens usados/totales. Verde < 50 %, amarillo < 80 %, rojo a partir de 80 %."),
-        ("5h ███░░ N% ↻", "Uso del límite de 5 horas de tu suscripción y cuenta atrás hasta que se renueva."),
-        ("7d ███░░ N% ↻", "Uso del límite semanal y cuenta atrás hasta que se renueva. Mismos colores que ctx."),
-        ("$N.NN", "Coste de la sesión. Verde < 1 $, amarillo < 5 $, rojo a partir de 5 $."),
+    ("Line 2 · usage", [
+        ("ctx ███░░ N%", "How full the conversation context is, with tokens used/total. Green < 50%, yellow < 80%, red from 80%."),
+        ("5h ███░░ N% ↻", "Usage of your subscription's 5-hour limit and countdown until it resets."),
+        ("7d ███░░ N% ↻", "Usage of the weekly limit and countdown until it resets. Same colors as ctx."),
+        ("$N.NN", "Session cost. Green < $1, yellow < $5, red from $5."),
         ("$N/h", "Spend rate per hour (shown after 5 min of session). Grey < $15/h, yellow < $30/h, red from $30/h."),
-        ("caché N%", "Parte del prompt que se reutiliza de la caché. Alto = más barato. Verde ≥ 70 %, amarillo ≥ 40 %, rojo por debajo."),
+        ("cache N%", "Share of the prompt that is reused from the cache. High = cheaper. Green ≥ 70%, yellow ≥ 40%, red below."),
         ("↺HH:MM", "Time at which the prompt cache expires (5 min after the last activity). Green while more than 1 min is left, yellow after that; red \"exp\" once expired."),
         ("Cache expired…", "Warning line: with the cache expired and a large context (≥ 50k), the next prompt re-caches all of it. Shows the estimated cost; consider /compact. Price adjustable with STATUSLINE_RECACHE_USD_PER_MTOK."),
-        ("↓N ↑N", "Tokens acumulados: ↓ leídos (entrada) y ↑ escritos (salida)."),
-        ("⏱", "Duración de la sesión."),
-        ("+N -N", "Líneas de código añadidas (verde) y borradas (rojo) en la sesión."),
+        ("↓N ↑N", "Accumulated tokens: ↓ read (input) and ↑ written (output)."),
+        ("⏱", "Session duration."),
+        ("+N -N", "Lines of code added (green) and deleted (red) in the session."),
     ]),
-    ("Línea 3 · ficheros cambiados", [
-        ("Δ", "Lista de todos los ficheros cambiados respecto a HEAD. Haz Cmd+clic en uno para ver su diff."),
-        ("M", "Modificado."),
-        ("A", "Añadido (staged)."),
-        ("D", "Borrado."),
-        ("R", "Renombrado."),
-        ("U", "Conflicto."),
-        ("?", "Nuevo, sin seguimiento."),
+    ("Line 3 · changed files", [
+        ("Δ", "List of every file changed against HEAD. Cmd+click one to see its diff."),
+        ("M", "Modified."),
+        ("A", "Added (staged)."),
+        ("D", "Deleted."),
+        ("R", "Renamed."),
+        ("U", "Conflict."),
+        ("?", "New, untracked."),
     ]),
 ]
 
 
-def pagina_ayuda():
-    cuerpo = ""
-    for titulo, filas in AYUDA:
-        trs = "".join(f"<tr><td class=k>{html.escape(k)}</td><td>{html.escape(v)}</td></tr>" for k, v in filas)
-        cuerpo += f"<section><h2>{html.escape(titulo)}</h2><table>{trs}</table></section>"
+def help_page():
+    body = ""
+    for title, rows in HELP:
+        trs = "".join(f"<tr><td class=k>{html.escape(k)}</td><td>{html.escape(v)}</td></tr>" for k, v in rows)
+        body += f"<section><h2>{html.escape(title)}</h2><table>{trs}</table></section>"
     extra = ("table{border-collapse:collapse;width:100%}td{padding:5px 12px;border-top:1px solid var(--bd);vertical-align:top}"
              ".k{white-space:nowrap;font-weight:600;width:1%}")
-    return ("<!doctype html><meta charset=utf-8><title>Ayuda · barra de estado</title>"
+    return ("<!doctype html><meta charset=utf-8><title>Help · status bar</title>"
             f"<style>{CSS}{extra}section{{scroll-margin-top:0}}</style>"
-            "<p style='margin:16px'>Qué significa cada cosa de la barra de estado de Claude Code.</p>" + cuerpo +
+            "<p style='margin:16px'>What each part of the Claude Code status bar means.</p>" + body +
             f"<p style='margin:16px' class=m>claude-code-statusline v{html.escape(VERSION)}</p>")
 
 
-def pagina(repo):
-    ficheros = []
+def diff_page(repo):
+    files = []
     for ln in git(repo, "status", "--porcelain", "-uall").splitlines():
-        est, f = ln[:2], ln[3:].split(" -> ")[-1].strip('"')
-        ficheros.append((est, f))
-    ficheros.sort(key=lambda x: x[1])
-    nav = "".join(f'<a href="#{html.escape(f, quote=True)}">{html.escape(f)}</a>' for _, f in ficheros)
-    cuerpo = ""
-    for est, f in ficheros:
-        d = diff_fichero(repo, est, f)
+        status, f = ln[:2], ln[3:].split(" -> ")[-1].strip('"')
+        files.append((status, f))
+    files.sort(key=lambda x: x[1])
+    nav = "".join(f'<a href="#{html.escape(f, quote=True)}">{html.escape(f)}</a>' for _, f in files)
+    body = ""
+    for status, f in files:
+        d = file_diff(repo, status, f)
         if len(d) > MAX_DIFF:
-            d = d[:MAX_DIFF] + f"\n... diff truncado (más de {MAX_DIFF // 1024} KiB)\n"
-        cuerpo += (f'<section id="{html.escape(f, quote=True)}"><h2>{html.escape(est.strip() or "M")} '
-                   f'{html.escape(f)}</h2><pre>{pinta(d) if d.strip() else "<span class=l>(sin cambios de texto)</span>"}</pre></section>')
-    if not ficheros:
-        cuerpo = "<p style='margin:16px'>Sin cambios respecto a HEAD.</p>"
-    titulo = f"Cambios · {os.path.basename(repo)} ({len(ficheros)})"
-    return (f"<!doctype html><meta charset=utf-8><title>{html.escape(titulo)}</title>"
-            f"<style>{CSS}</style><nav>{nav}</nav>{cuerpo}")
+            d = d[:MAX_DIFF] + f"\n... diff truncated (more than {MAX_DIFF // 1024} KiB)\n"
+        body += (f'<section id="{html.escape(f, quote=True)}"><h2>{html.escape(status.strip() or "M")} '
+                 f'{html.escape(f)}</h2><pre>{render(d) if d.strip() else "<span class=l>(no text changes)</span>"}</pre></section>')
+    if not files:
+        body = "<p style='margin:16px'>No changes against HEAD.</p>"
+    title = f"Changes · {os.path.basename(repo)} ({len(files)})"
+    return (f"<!doctype html><meta charset=utf-8><title>{html.escape(title)}</title>"
+            f"<style>{CSS}</style><nav>{nav}</nav>{body}")
 
 
-class Servidor(ThreadingHTTPServer):
+class Server(ThreadingHTTPServer):
     def server_bind(self):
-        # HTTPServer.server_bind hace una resolución DNS inversa (socket.getfqdn) que puede tardar
-        # muchos segundos en algunos entornos (p. ej. macOS en CI) y retrasa el arranque. No la usamos.
+        # HTTPServer.server_bind does a reverse DNS lookup (socket.getfqdn) that can take many
+        # seconds in some environments (e.g. macOS on CI) and delays startup. We do not use it.
         socketserver.TCPServer.server_bind(self)
         self.server_name = self.server_address[0]
         self.server_port = self.server_address[1]
 
 
 class H(BaseHTTPRequestHandler):
-    def deniega(self, codigo, msg):
-        self.send_response(codigo)
+    def deny(self, code, msg):
+        self.send_response(code)
         self.end_headers()
         self.wfile.write(msg)
 
     def do_GET(self):
-        # Anti DNS-rebinding: solo se atienden peticiones dirigidas a nuestro host:puerto
-        if self.headers.get("Host", "").lower() not in HOSTS_VALIDOS:
-            self.deniega(403, b"host no permitido")
+        # Anti DNS-rebinding: only requests addressed to our host:port are served
+        if self.headers.get("Host", "").lower() not in VALID_HOSTS:
+            self.deny(403, b"host not allowed")
             return
         q = parse_qs(urlparse(self.path).query)
-        # Token secreto: sin él ninguna web puede leer tus diffs aunque adivine el puerto
-        esperado = token_esperado()
-        dado = (q.get("t") or [""])[0]
-        if not esperado or not hmac.compare_digest(dado.encode(), esperado.encode()):
-            self.deniega(403, b"token invalido")
+        # Secret token: without it no website can read your diffs even if it guesses the port
+        expected = expected_token()
+        given = (q.get("t") or [""])[0]
+        if not expected or not hmac.compare_digest(given.encode(), expected.encode()):
+            self.deny(403, b"invalid token")
             return
-        if urlparse(self.path).path == "/ayuda":
-            self.responde(pagina_ayuda())
+        if urlparse(self.path).path == "/help":
+            self.respond(help_page())
             return
         repo = (q.get("d") or [""])[0]
         top = git(repo, "rev-parse", "--show-toplevel").strip() if os.path.isdir(repo) else ""
         if not top:
-            self.deniega(400, b"d= debe ser un repo git")
+            self.deny(400, b"d= must be a git repo")
             return
-        self.responde(pagina(top))
+        self.respond(diff_page(top))
 
-    def responde(self, texto):
-        cuerpo = texto.encode()
+    def respond(self, text):
+        body = text.encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Cache-Control", "no-store")
@@ -201,17 +201,17 @@ class H(BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
         self.end_headers()
-        self.wfile.write(cuerpo)
+        self.wfile.write(body)
 
     def log_message(self, *a):
         pass
 
 
 if __name__ == "__main__":
-    # El pid permite a statusline.sh reiniciar el servidor cuando el código cambia
+    # The pid lets statusline.sh restart the server when the code changes
     try:
-        with open(os.path.join(ESTADO, "server.pid"), "w") as f:
+        with open(os.path.join(STATE, "server.pid"), "w") as f:
             f.write(str(os.getpid()))
     except OSError:
         pass
-    Servidor(("127.0.0.1", PUERTO), H).serve_forever()
+    Server(("127.0.0.1", PORT), H).serve_forever()

@@ -2,36 +2,36 @@
 
 [![CI](https://github.com/dMartinezAyuso/claude-code-statusline/actions/workflows/ci.yml/badge.svg)](https://github.com/dMartinezAyuso/claude-code-statusline/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/dMartinezAyuso/claude-code-statusline/actions/workflows/codeql.yml/badge.svg)](https://github.com/dMartinezAyuso/claude-code-statusline/actions/workflows/codeql.yml)
-[![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Barra de estado personalizada de 3 líneas para [Claude Code](https://claude.com/claude-code):
+A custom 3-line status bar for [Claude Code](https://claude.com/claude-code):
 
-1. Modelo y esfuerzo · proyecto · rama git (↑ahead ↓behind) · estado git · PR
-2. Contexto · límites de uso 5h/7d con cuenta atrás · coste y ritmo $/h · caché de prompt con hora de caducidad · tokens · duración · líneas
-3. Todos los ficheros cambiados respecto a `HEAD`. **Cmd+clic** en uno abre su diff en el navegador.
+1. Model and effort · project · git branch (↑ahead ↓behind) · git state · PR
+2. Context · 5h/7d usage limits with countdown · cost and $/h rate · prompt cache with expiry time · tokens · duration · lines
+3. Every file changed against `HEAD`. **Cmd+click** on one opens its diff in the browser.
 
 If the prompt cache expires while the context is large, a warning line shows the estimated cost of re-caching it (the price can be adjusted with `STATUSLINE_RECACHE_USD_PER_MTOK`).
 
-El enlace `ⓘ ayuda` abre una leyenda con el significado de cada símbolo.
+The `ⓘ help` link opens a legend explaining every symbol.
 
-## Requisitos
+## Requirements
 
-- macOS (usa `stty -f` y `ps`; en Linux habría que adaptar `term_width`)
-- `bash`, `jq`, `git`, `nc` (netcat) y `python3`
-- Una terminal con enlaces OSC 8 (iTerm2, Ghostty, WezTerm, Kitty, VS Code…)
+- macOS (it uses `stty -f` and `ps`; on Linux `term_width` would need adapting)
+- `bash`, `jq`, `git`, `nc` (netcat) and `python3`
+- A terminal with OSC 8 links (iTerm2, Ghostty, WezTerm, Kitty, VS Code…)
 
-## Instalación
+## Installation
 
 ```bash
 git clone https://github.com/dMartinezAyuso/claude-code-statusline.git ~/.claude/statusline
 cd ~/.claude/statusline
-git checkout "$(git describe --tags --abbrev=0)"   # opcional: última versión estable en vez de main
-./install.sh                                       # configura statusLine en ~/.claude/settings.json
+git checkout "$(git describe --tags --abbrev=0)"   # optional: latest stable version instead of main
+./install.sh                                       # sets statusLine in ~/.claude/settings.json
 ```
 
-`install.sh` comprueba las dependencias (`./statusline.sh --doctor`), hace **copia de seguridad** de `settings.json`, no pisa un `statusLine` ajeno salvo que uses `--force`, y se deshace con `./install.sh --uninstall`. Si usas otra carpeta de configuración, define `CLAUDE_CONFIG_DIR`.
+`install.sh` checks the dependencies (`./statusline.sh --doctor`), makes a **backup** of `settings.json`, does not overwrite a foreign `statusLine` unless you pass `--force`, and is undone with `./install.sh --uninstall`. If you use a different configuration folder, set `CLAUDE_CONFIG_DIR`.
 
-Instalación manual: en `settings.json`
+Manual installation: in `settings.json`
 
 ```json
 {
@@ -39,57 +39,57 @@ Instalación manual: en `settings.json`
 }
 ```
 
-Se probó con el JSON de statusline de Claude Code de noviembre de 2026. Los campos que no existan simplemente no se pintan.
+Tested against the Claude Code statusline JSON of November 2026. Fields that do not exist are simply not drawn.
 
-## Actualizar
+## Updating
 
 ```bash
 cd ~/.claude/statusline
-git pull --ff-only          # última versión
-# o, para fijar una versión concreta y estable:
-git fetch --tags && git checkout vX.Y.Z   # ver la última en Releases
+git pull --ff-only          # latest version
+# or, to pin a specific stable version:
+git fetch --tags && git checkout vX.Y.Z   # see the latest under Releases
 ```
 
-No hace falta reiniciar nada: en el siguiente refresco (≤10 s) `statusline.sh` detecta que `diffserver.py` ha cambiado y reinicia el servidor con el código nuevo. El token se conserva.
+Nothing needs restarting: on the next refresh (≤10 s) `statusline.sh` notices that `diffserver.py` has changed and restarts the server with the new code. The token is kept.
 
-Antes de actualizar, mira el [CHANGELOG](CHANGELOG.md): los cambios de seguridad van marcados con **[seguridad]**. Para enterarte de nuevas versiones usa *Watch → Custom → Releases* en GitHub.
+Before updating, read the [CHANGELOG](CHANGELOG.md): security changes are marked **[security]**. To hear about new versions use *Watch → Custom → Releases* on GitHub.
 
-## Buenas prácticas de uso
+## Good practices
 
-- **Fija una versión** (`git checkout vX.Y.Z`) si prefieres estabilidad; sigue `main` si quieres lo último.
-- **Lee el diff antes de actualizar** (`git diff HEAD..origin/main`): este script se ejecuta cada pocos segundos con tus permisos y lanza un servidor. Es poco código; revísalo como harías con cualquier script de terceros.
-- **No cambies el puerto a una IP distinta de `127.0.0.1`** ni expongas el servidor con túneles o proxies: serviría tu código sin commitear a quien llegue.
-- **No compartas capturas ni copies enlaces de la barra** (llevan el token en la URL). Si lo haces, rota el token (abajo).
-- **Rota el token** si sospechas que se ha filtrado: `rm ~/.local/state/claude-code-statusline/token`; se genera otro en el siguiente refresco y el servidor lo lee en cada petición.
-- **Para parar el servidor**: `pkill -f diffserver.py`; se relanza solo al volver a usar la barra. Para desactivarlo del todo, quita el statusline de `settings.json`.
-- **Personaliza en un fork o rama propia**, no sobre `main` clonado, para que `git pull` no choque con tus cambios.
+- **Pin a version** (`git checkout vX.Y.Z`) if you prefer stability; follow `main` if you want the latest.
+- **Read the diff before updating** (`git diff HEAD..origin/main`): this script runs every few seconds with your permissions and starts a server. It is little code; review it as you would any third-party script.
+- **Do not bind the port to an IP other than `127.0.0.1`** and do not expose the server through tunnels or proxies: it would serve your uncommitted code to whoever reaches it.
+- **Do not share screenshots or copy links from the bar** (they carry the token in the URL). If you do, rotate the token (below).
+- **Rotate the token** if you suspect it leaked: `rm ~/.local/state/claude-code-statusline/token`; a new one is generated on the next refresh and the server reads it on every request.
+- **To stop the server**: `pkill -f diffserver.py`; it restarts by itself when the bar is used again. To disable it completely, remove the statusline from `settings.json`.
+- **Customize in a fork or your own branch**, not on a cloned `main`, so `git pull` does not clash with your changes.
 
-## Qué ejecuta en tu máquina
+## What it runs on your machine
 
-Conviene saberlo antes de instalar:
+Worth knowing before installing:
 
-- La primera vez que hay un repo git, `statusline.sh` **arranca en segundo plano** `diffserver.py`, un servidor HTTP en `127.0.0.1:8765` (cambiable con `STATUSLINE_PORT`).
-- Ese servidor **solo lee**: ejecuta `git status` / `git diff` y pinta HTML. No escribe nada en tus repos.
-- Estado y token se guardan en `~/.local/state/claude-code-statusline/` (`XDG_STATE_HOME`).
+- The first time there is a git repo, `statusline.sh` **starts in the background** `diffserver.py`, an HTTP server on `127.0.0.1:8765` (configurable with `STATUSLINE_PORT`).
+- That server is **read-only**: it runs `git status` / `git diff` and renders HTML. It writes nothing to your repos.
+- State and token are stored in `~/.local/state/claude-code-statusline/` (`XDG_STATE_HOME`).
 
-## Seguridad
+## Security
 
-El servidor expone el código sin commitear de tus repos, así que está protegido:
+The server exposes the uncommitted code of your repos, so it is protected:
 
-- Solo escucha en `127.0.0.1`.
-- **Token secreto** de 128 bits generado al azar (fichero con permisos `600`, carpeta `700`), exigido en cada petición y comparado en tiempo constante. Una web cualquiera no puede leer tus diffs aunque adivine el puerto.
-- **Validación de `Host`**: se rechaza cualquier petición cuyo `Host` no sea `127.0.0.1:<puerto>` o `localhost:<puerto>` (defensa contra DNS rebinding).
-- Cabeceras `Content-Security-Policy`, `X-Content-Type-Options` y `Referrer-Policy`; el contenido se escapa con `html.escape`.
-- El parámetro `d=` debe ser un repo git; si no, 400.
+- It only listens on `127.0.0.1`.
+- A random 128-bit **secret token** (file with `600` permissions, folder `700`), required on every request and compared in constant time. A random website cannot read your diffs even if it guesses the port.
+- **`Host` validation**: any request whose `Host` is not `127.0.0.1:<port>` or `localhost:<port>` is rejected (defence against DNS rebinding).
+- `Content-Security-Policy`, `X-Content-Type-Options` and `Referrer-Policy` headers; content is escaped with `html.escape`.
+- The `d=` parameter must be a git repo; otherwise 400.
 
-El token va en la URL de los enlaces, por lo que quien tenga acceso a tu sesión de terminal podría verlo: es un modelo de amenaza local pensado para evitar accesos desde el navegador, no frente a otro usuario con acceso a tu cuenta. Para rotarlo, borra `~/.local/state/claude-code-statusline/token` y reinicia el servidor (`pkill -f diffserver.py`).
+The token is in the URL of the links, so anyone with access to your terminal session could see it: this is a local threat model meant to prevent access from the browser, not against another user with access to your account. To rotate it, delete `~/.local/state/claude-code-statusline/token` and restart the server (`pkill -f diffserver.py`).
 
-¿Encuentras una vulnerabilidad? Usa el [aviso privado](https://github.com/dMartinezAyuso/claude-code-statusline/security/advisories/new) (ver [SECURITY.md](SECURITY.md)), no un issue público.
+Found a vulnerability? Use the [private advisory](https://github.com/dMartinezAyuso/claude-code-statusline/security/advisories/new) (see [SECURITY.md](SECURITY.md)), not a public issue.
 
-## Contribuir
+## Contributing
 
-Las PR son bienvenidas: lee [CONTRIBUTING.md](CONTRIBUTING.md). La CI ejecuta shellcheck, las pruebas y CodeQL en cada PR.
+PRs are welcome: read [CONTRIBUTING.md](CONTRIBUTING.md). CI runs shellcheck, the tests and CodeQL on every PR.
 
-## Licencia
+## License
 
 MIT
