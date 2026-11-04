@@ -240,6 +240,32 @@ MIX='{"model":{"display_name":"M"},"workspace":{"current_dir":"'"$TMP/mix"'"}}'
 d=$(echo "$MIX" | STATUSLINE_FILES=count timeout_run "$TMP/statusline.sh" 2>/dev/null | plain)
 chk "count breaks the total down by status"           '[[ "$d" == *"Δ 4 · M1 A1 D1 ?1"* ]]'
 
+# Segment links: each part of the bar opens its row in the help page (STATUSLINE_LINKS=off disables them)
+LINKJSON='{"model":{"display_name":"Opus"},"context_window":{"context_window_size":1000000,"total_input_tokens":200000,"total_output_tokens":5000,"current_usage":{"input_tokens":200000}},"cost":{"total_cost_usd":3.0,"total_duration_ms":1800000,"total_lines_added":4,"total_lines_removed":1},"rate_limits":{"five_hour":{"used_percentage":10,"resets_at":9999999999},"seven_day":{"used_percentage":20,"resets_at":9999999999}},"prompt_cache":{"expires_at":'$((now + 600))'},"workspace":{"current_dir":"'"$TMP/mix"'"}}'
+# shellcheck disable=SC2163  # "$kv" is an assignment like VAR=value on purpose
+link_raw() { echo "$LINKJSON" | ( for kv in "$@"; do export "$kv"; done; timeout_run "$TMP/statusline.sh" ) 2>/dev/null; }
+# the URL of the OSC 8 link that wraps a given text
+url_of() { perl -ne 'print $1 if /\e\]8;;([^\a]*)\a(?:\e\[[0-9;]*m)*'"$1"'/' ; }
+raw=$(link_raw STATUSLINE_BILLING=api)
+chk "ctx links to its row"                    '[[ "$(printf "%s" "$raw" | url_of "ctx")" == *"/help?t="*"#ctx" ]]'
+chk "5h links to its row"                     '[[ "$(printf "%s" "$raw" | url_of "5h")" == *"#limit-5h" ]]'
+chk "7d links to its row"                     '[[ "$(printf "%s" "$raw" | url_of "7d")" == *"#limit-7d" ]]'
+chk "the cost links to its row"               '[[ "$(printf "%s" "$raw" | url_of "\\\$3\\.00")" == *"#cost" ]]'
+chk "the \$/h rate links to its row"          '[[ "$(printf "%s" "$raw" | url_of "\\\$6\\/h")" == *"#burn" ]]'
+chk "the cache links to its row"              '[[ "$(printf "%s" "$raw" | url_of "cache")" == *"#cache" ]]'
+chk "the expiry time links to its row"        '[[ "$(printf "%s" "$raw" | url_of "↺")" == *"#cache-expiry" ]]'
+chk "the tokens link to their row"            '[[ "$(printf "%s" "$raw" | url_of "↓")" == *"#tokens" ]]'
+chk "the duration links to its row"           '[[ "$(printf "%s" "$raw" | url_of "⏱")" == *"#duration" ]]'
+chk "the changed lines link to their row"     '[[ "$(printf "%s" "$raw" | url_of "\\+4")" == *"#lines" ]]'
+chk "the staged counter links to its row"     '[[ "$(printf "%s" "$raw" | url_of "●")" == *"#staged" ]]'
+chk "the untracked counter links to its row"  '[[ "$(printf "%s" "$raw" | url_of "\\?")" == *"#untracked" ]]'
+chk "the subscription cost links to its row"  '[[ "$(link_raw STATUSLINE_BILLING=subscription | url_of "≈")" == *"#cost-subscription" ]]'
+chk "every link carries the token"            '[ "$(printf "%s" "$raw" | grep -o "/help?t=[0-9a-f]*#" | grep -vc "t=$(cat "$STATE/token")#")" = 0 ]'
+off=$(link_raw STATUSLINE_LINKS=off)
+chk "STATUSLINE_LINKS=off removes the segment links" '! printf "%s" "$off" | grep -q "/help?t=[0-9a-f]*#"'
+chk "but keeps the ⓘ help link"                      '[[ "$(printf "%s" "$off" | url_of " ⓘ help")" == *"/help?t="* && "$(printf "%s" "$off" | url_of " ⓘ help")" != *"#"* ]]'
+chk "links never change the visible text"            '[ "$(printf "%s" "$raw" | plain)" = "$(link_raw STATUSLINE_BILLING=api STATUSLINE_LINKS=off | plain)" ]'
+
 chk "--version works"  '"$TMP/statusline.sh" --version | grep -q "^claude-code-statusline [0-9]"'
 chk "--doctor works"   '"$TMP/statusline.sh" --doctor >/dev/null'
 
