@@ -257,7 +257,7 @@ fi
 # Prompt cache expiry (5 min after the last activity, approximated with the transcript mtime).
 # Once expired, a large context is fully re-cached on the next prompt: warn about it.
 CACHE_TTL=300
-alerta=""
+warning=""
 if [ -n "$transcript" ] && [ -f "$transcript" ]; then
   # GNU stat first: on Linux `stat -f` means "filesystem status" and prints garbage instead of failing
   mt=$(stat -c %Y "$transcript" 2>/dev/null || stat -f %m "$transcript" 2>/dev/null)
@@ -270,11 +270,11 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
       ttl="${RED}exp ${hm}${R}"
       # Cache-creation price per million tokens by model (STATUSLINE_RECACHE_USD_PER_MTOK overrides it)
       case "$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')" in
-        *haiku*) tarifa=1.25 ;; *sonnet*) tarifa=3.75 ;; *) tarifa=6.25 ;;
+        *haiku*) price=1.25 ;; *sonnet*) price=3.75 ;; *) price=6.25 ;;
       esac
-      tarifa="${STATUSLINE_RECACHE_USD_PER_MTOK:-$tarifa}"
+      price="${STATUSLINE_RECACHE_USD_PER_MTOK:-$price}"
       if [ "${cur:-0}" -ge 50000 ] 2>/dev/null; then
-        alerta="${RED}${BOLD}Cache expired${R}${RED}: the next prompt re-caches $(fmt "$cur") ≈ \$$(awk -v t="$cur" -v r="$tarifa" 'BEGIN{printf "%.2f", t * r / 1000000}') → /compact${R}"
+        warning="${RED}${BOLD}Cache expired${R}${RED}: the next prompt re-caches $(fmt "$cur") ≈ \$$(awk -v t="$cur" -v r="$price" 'BEGIN{printf "%.2f", t * r / 1000000}') → /compact${R}"
       fi
     fi
     cache_seg="${cache_seg:-${DIM}cache${R}} ${ttl}"
@@ -303,6 +303,6 @@ fi
 
 [ -n "$l1" ] && printf '%s\n' "$l1"
 [ -n "$l2" ] && printf '%s\n' "$l2"
-[ -n "$alerta" ] && printf '%s\n' "$alerta"
+[ -n "$warning" ] && printf '%s\n' "$warning"
 [ -n "$files_line" ] && printf '%s\n' "$files_line"
 exit 0

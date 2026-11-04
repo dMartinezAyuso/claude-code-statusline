@@ -129,6 +129,13 @@ class Content(ServerBase):
         _, body = self.get(f"/help?t={TOKEN}")
         self.assertIn(self.mod.VERSION, body)
 
+    def test_help_documents_what_the_bar_shows(self):
+        _, body = self.get(f"/help?t={TOKEN}")
+        for item in ("↺HH:MM", "exp HH:MM", "$N/h", "Cache expired", "STATUSLINE_RECACHE_USD_PER_MTOK",
+                     "STATUSLINE_PORT", "✔ clean", "ⓘ help", "--doctor"):
+            with self.subTest(item=item):
+                self.assertIn(item, body)
+
     def test_directory_that_is_not_a_repo_400(self):
         self.assertEqual(self.get(f"/?t={TOKEN}&d={self.tmp.name}")[0].status, 400)
 

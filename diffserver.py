@@ -78,7 +78,7 @@ def render(text):
     return "".join(out)
 
 
-# Status bar legend: (symbol, meaning). Rendered at /help.
+# Status bar legend: (symbol, meaning). Rendered at /help. Keep it in sync with statusline.sh.
 HELP = [
     ("Line 1 · model and git", [
         ("Model (effort)", "Active model and, in parentheses, the reasoning effort level."),
@@ -94,29 +94,40 @@ HELP = [
         ("✖N", "Files with a merge conflict."),
         ("✔ clean", "No pending changes."),
         ("PR #N", "The branch's pull request. Green = approved, red = changes requested, yellow = pending."),
-        ("ⓘ", "This help."),
+        ("NORMAL / INSERT", "Vim mode of the Claude Code prompt, when vim mode is enabled."),
+        ("ⓘ help", "This page."),
     ]),
     ("Line 2 · usage", [
-        ("ctx ███░░ N%", "How full the conversation context is, with tokens used/total. Green < 50%, yellow < 80%, red from 80%."),
-        ("5h ███░░ N% ↻", "Usage of your subscription's 5-hour limit and countdown until it resets."),
+        ("ctx ███░░ N%", "How full the conversation context is, with tokens used/total. Green < 50%, yellow < 80%, red from 80%. When it gets red, run /compact or /clear."),
+        ("5h ███░░ N% ↻", "Usage of your subscription's 5-hour limit and countdown until it resets (↻now = already reset). Same colors as ctx."),
         ("7d ███░░ N% ↻", "Usage of the weekly limit and countdown until it resets. Same colors as ctx."),
         ("$N.NN", "Session cost. Green < $1, yellow < $5, red from $5."),
-        ("$N/h", "Spend rate per hour (shown after 5 min of session). Grey < $15/h, yellow < $30/h, red from $30/h."),
-        ("cache N%", "Share of the prompt that is reused from the cache. High = cheaper. Green ≥ 70%, yellow ≥ 40%, red below."),
-        ("↺HH:MM", "Time at which the prompt cache expires (5 min after the last activity). Green while more than 1 min is left, yellow after that; red \"exp\" once expired."),
-        ("Cache expired…", "Warning line: with the cache expired and a large context (≥ 50k), the next prompt re-caches all of it. Shows the estimated cost; consider /compact. Price adjustable with STATUSLINE_RECACHE_USD_PER_MTOK."),
+        ("$N/h", "Spend rate per hour, shown after 5 min of session. Grey < $15/h, yellow < $30/h, red from $30/h."),
+        ("cache N%", "Share of the prompt that was served from the prompt cache, which is cheaper. Green ≥ 70%, yellow ≥ 40%, red below."),
+        ("↺HH:MM", "Time at which the prompt cache expires: 5 min after the last activity in the conversation (an estimate, it can be off by a few seconds). Green while more than 1 min is left, then yellow."),
+        ("exp HH:MM", "In red: the prompt cache expired at that time. The next prompt has to rebuild it, which costs more (see the warning line)."),
         ("↓N ↑N", "Accumulated tokens: ↓ read (input) and ↑ written (output)."),
         ("⏱", "Session duration."),
         ("+N -N", "Lines of code added (green) and deleted (red) in the session."),
     ]),
+    ("Warning line · only when needed", [
+        ("Cache expired: …", "Appears between lines 2 and 3 when the cache has expired and the context is large (≥ 50k tokens). The next prompt will re-cache all of it; it shows the estimated cost. Running /compact first makes that cheaper."),
+    ]),
     ("Line 3 · changed files", [
-        ("Δ", "List of every file changed against HEAD. Cmd+click one to see its diff."),
+        ("Δ", "List of every file changed against HEAD. Cmd+click one to see its diff in the browser."),
         ("M", "Modified."),
         ("A", "Added (staged)."),
         ("D", "Deleted."),
         ("R", "Renamed."),
         ("U", "Conflict."),
         ("?", "New, untracked."),
+    ]),
+    ("Good to know", [
+        ("Missing items", "Anything Claude Code does not report (for example the 5h/7d limits without a subscription) is simply not shown."),
+        ("Links and the token", "Links carry a secret token. Do not share them or paste them in screenshots. If one stops working (403), click a fresh link from the bar."),
+        ("STATUSLINE_PORT", "Port of this local server (default 8765)."),
+        ("STATUSLINE_RECACHE_USD_PER_MTOK", "Price per million tokens used to estimate the re-cache cost. Defaults (approximate): Opus 6.25, Sonnet 3.75, Haiku 1.25."),
+        ("Problems", "Run ./statusline.sh --doctor in the install folder; it checks the dependencies and prints the version and state folder."),
     ]),
 ]
 

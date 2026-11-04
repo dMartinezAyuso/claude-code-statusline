@@ -10,13 +10,23 @@ A custom 3-line status bar for [Claude Code](https://claude.com/claude-code):
 2. Context · 5h/7d usage limits with countdown · cost and $/h rate · prompt cache with expiry time · tokens · duration · lines
 3. Every file changed against `HEAD`. **Cmd+click** on one opens its diff in the browser.
 
-If the prompt cache expires while the context is large, a warning line shows the estimated cost of re-caching it (the price can be adjusted with `STATUSLINE_RECACHE_USD_PER_MTOK`).
+The `ⓘ help` link opens a legend explaining every symbol, color and setting.
 
-The `ⓘ help` link opens a legend explaining every symbol.
+### Prompt cache indicator
+
+Claude Code keeps your conversation in the prompt cache, which makes each turn cheaper, but the cache expires after a few minutes without activity. The bar shows:
+
+- `cache N%`: how much of the last prompt was served from the cache.
+- `↺HH:MM`: when the cache expires (green, then yellow in the last minute). Once expired it turns into a red `exp HH:MM`.
+- A **warning line** between lines 2 and 3, only when the cache has expired and the context is large (50k tokens or more): the next prompt has to re-cache all of it, so the bar shows the estimated cost and suggests `/compact`.
+
+The expiry time is an estimate: it assumes a 5-minute lifetime counted from the last write to the conversation transcript. The re-cache cost uses the cache-creation price of the active model (approximately Opus $6.25, Sonnet $3.75 and Haiku $1.25 per million tokens); set `STATUSLINE_RECACHE_USD_PER_MTOK` to use your own price.
+
+`$N/h` next to the cost is the average spend rate of the session; it appears after 5 minutes so early numbers do not mislead. Fields that Claude Code does not report (for example the 5h/7d limits without a subscription) are not drawn.
 
 ## Requirements
 
-- macOS (it uses `stty -f` and `ps`; on Linux `term_width` would need adapting)
+- macOS or Linux. It is developed on macOS and the CI also runs the tests on Linux. To size the file list it reads `$COLUMNS`, then `/dev/tty`, then the terminal of a parent process (this last step uses `stty -f`, macOS only); if none works it wraps at 110 columns
 - `bash`, `jq`, `git`, `nc` (netcat) and `python3`
 - A terminal with OSC 8 links (iTerm2, Ghostty, WezTerm, Kitty, VS Code…)
 
@@ -40,6 +50,24 @@ Manual installation: in `settings.json`
 ```
 
 Tested against the Claude Code statusline JSON of November 2026. Fields that do not exist are simply not drawn.
+
+## Configuration
+
+All settings are optional environment variables:
+
+| Variable | Default | What it does |
+|---|---|---|
+| `STATUSLINE_PORT` | `8765` | Port of the local diff server (always bound to `127.0.0.1`). |
+| `STATUSLINE_RECACHE_USD_PER_MTOK` | by model | Price per million tokens used to estimate the re-cache cost in the warning line. |
+| `CLAUDE_CONFIG_DIR` | `~/.claude` | Folder whose `settings.json` `install.sh` edits. |
+| `XDG_STATE_HOME` | `~/.local/state` | Where the token and server state are kept (`claude-code-statusline/`). |
+
+## Troubleshooting
+
+- Run `./statusline.sh --doctor`: it checks the dependencies and prints the version and the state folder.
+- A link answers `403`: the token changed or the link is stale. Click a fresh link from the bar.
+- The server does not start: another program may be using port `8765`; set `STATUSLINE_PORT` to a free one.
+- Nothing appears after installing: restart Claude Code, and check that `statusLine` in `settings.json` points to `statusline.sh`.
 
 ## Updating
 

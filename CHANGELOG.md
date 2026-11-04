@@ -4,6 +4,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and ver
 Security changes are marked **[security]**.
 
 ## [Unreleased]
+### Changed
+- The in-bar help page (`/help`) is now complete: vim mode, `exp HH:MM`, the warning line in its own section, settings and troubleshooting tips.
+- README documents the prompt cache indicator, the configuration variables, troubleshooting and platform support.
+- Contribution checklist asks to keep the legend and the README in sync with the bar.
 
 ## [0.2.0] - 2026-11-04
 ### Added
