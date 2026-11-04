@@ -126,7 +126,7 @@ HELP = [
         ("Missing items", "Anything Claude Code does not report (for example the 5h/7d limits without a subscription) is simply not shown."),
         ("Links and the token", "Links carry a secret token. Do not share them or paste them in screenshots. If one stops working (403), click a fresh link from the bar."),
         ("STATUSLINE_PORT", "Port of this local server (default 8765)."),
-        ("STATUSLINE_RECACHE_USD_PER_MTOK", "Price per million tokens used to estimate the re-cache cost. Defaults (approximate): Opus 6.25, Sonnet 3.75, Haiku 1.25."),
+        ("STATUSLINE_RECACHE_USD_PER_MTOK", "Price per million tokens used to estimate the re-cache cost. By default the 5-minute cache-write price of the active model from Anthropic's pricing page (platform.claude.com/docs/en/about-claude/pricing)."),
         ("Problems", "Run ./statusline.sh --doctor in the install folder; it checks the dependencies and prints the version and state folder."),
     ]),
 ]

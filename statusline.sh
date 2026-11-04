@@ -268,10 +268,18 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
     elif [ "$left" -gt 0 ]; then ttl="${YELLOW}↺${hm}${R}"
     else
       ttl="${RED}exp ${hm}${R}"
-      # Cache-creation price per million tokens by model (STATUSLINE_RECACHE_USD_PER_MTOK overrides it)
-      case "$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')" in
-        *haiku*) price=1.25 ;; *sonnet*) price=3.75 ;; *) price=6.25 ;;
-      esac
+      # 5-minute cache-write price per million tokens, from the official pricing table
+      # (https://platform.claude.com/docs/en/about-claude/pricing). STATUSLINE_RECACHE_USD_PER_MTOK overrides it.
+      m=$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')
+      if   [[ "$m" == *fable* || "$m" == *mythos* ]]; then price=12.50
+      elif [[ "$m" =~ opus[^0-9]*5\.5 ]]; then price=5.00
+      elif [[ "$m" == *opus* ]]; then price=6.25
+      elif [[ "$m" =~ sonnet[^0-9]*5 ]]; then price=2.50     # Sonnet 5 and 5.5 (not 4.x)
+      elif [[ "$m" == *sonnet* ]]; then price=3.75
+      elif [[ "$m" =~ haiku[^0-9]*5 ]]; then                  # Haiku 5.5 is cheaper up to 100k-token prompts
+        if [ "${cur:-0}" -le 100000 ] 2>/dev/null; then price=0.125; else price=0.625; fi
+      elif [[ "$m" == *haiku* ]]; then price=1.25
+      else price=6.25; fi
       price="${STATUSLINE_RECACHE_USD_PER_MTOK:-$price}"
       if [ "${cur:-0}" -ge 50000 ] 2>/dev/null; then
         warning="${RED}${BOLD}Cache expired${R}${RED}: the next prompt re-caches $(fmt "$cur") ≈ \$$(awk -v t="$cur" -v r="$price" 'BEGIN{printf "%.2f", t * r / 1000000}') → /compact${R}"

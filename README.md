@@ -20,7 +20,9 @@ Claude Code keeps your conversation in the prompt cache, which makes each turn c
 - `↺HH:MM`: when the cache expires (green, then yellow in the last minute). Once expired it turns into a red `exp HH:MM`.
 - A **warning line** between lines 2 and 3, only when the cache has expired and the context is large (50k tokens or more): the next prompt has to re-cache all of it, so the bar shows the estimated cost and suggests `/compact`.
 
-The expiry time is an estimate: it assumes a 5-minute lifetime counted from the last write to the conversation transcript. The re-cache cost uses the cache-creation price of the active model (approximately Opus $6.25, Sonnet $3.75 and Haiku $1.25 per million tokens); set `STATUSLINE_RECACHE_USD_PER_MTOK` to use your own price.
+The expiry time is an estimate: Anthropic's [default cache lifetime is 5 minutes](https://platform.claude.com/docs/en/build-with-claude/prompt-caching), renewed every time the cache is used, and the bar counts it from the last write to the conversation transcript. If you use the 1-hour cache option the real expiry is later than shown.
+
+The re-cache cost uses the 5-minute cache-write price of the active model from the [official pricing table](https://platform.claude.com/docs/en/about-claude/pricing), per million tokens: Fable and Mythos $12.50, Opus 5.5 $5, other Opus $6.25, Sonnet 5 and 5.5 $2.50, other Sonnet $3.75, Haiku 5.5 $0.125 (prompts up to 100k tokens) or $0.625 (longer), other Haiku $1.25. An unknown model uses $6.25. Prices change, so set `STATUSLINE_RECACHE_USD_PER_MTOK` to override them.
 
 `$N/h` next to the cost is the average spend rate of the session; it appears after 5 minutes so early numbers do not mislead. Fields that Claude Code does not report (for example the 5h/7d limits without a subscription) are not drawn.
 

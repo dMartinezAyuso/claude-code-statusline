@@ -17,7 +17,7 @@ chk() { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 
 # Copy of the scripts so diffserver.py can be "updated" without touching the repo
 cp "$ROOT/statusline.sh" "$ROOT/diffserver.py" "$ROOT/VERSION" "$TMP/"
-git init -q "$TMP/repo" && echo hola >"$TMP/repo/f.txt"
+git init -q "$TMP/repo" && echo hello >"$TMP/repo/f.txt"
 
 export XDG_STATE_HOME="$TMP/state"
 STATUSLINE_PORT=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
@@ -52,9 +52,9 @@ chk "and the new server answers"         'nc -z -w 1 127.0.0.1 "$STATUSLINE_PORT
 G=(git -C "$TMP/repo" -c user.email=t@e.c -c user.name=t)
 "${G[@]}" add -A; "${G[@]}" commit -qm base
 base=$("${G[@]}" symbolic-ref --short HEAD)
-"${G[@]}" checkout -qb ramaA; echo A >"$TMP/repo/f.txt"; echo A >"$TMP/repo/g.txt"; "${G[@]}" add -A; "${G[@]}" commit -qm A
+"${G[@]}" checkout -qb branchA; echo A >"$TMP/repo/f.txt"; echo A >"$TMP/repo/g.txt"; "${G[@]}" add -A; "${G[@]}" commit -qm A
 "${G[@]}" checkout -q "$base"; echo B >"$TMP/repo/f.txt"; echo B >"$TMP/repo/g.txt"; "${G[@]}" add -A; "${G[@]}" commit -qm B
-"${G[@]}" merge ramaA >/dev/null 2>&1
+"${G[@]}" merge branchA >/dev/null 2>&1
 output=$(echo "$JSON" | timeout_run "$TMP/statusline.sh" 2>/dev/null)
 redU=$'\033[31mU\033[0m'
 chk "there is a UU or AA conflict in the test repo" '"${G[@]}" status --porcelain | grep -qE "^(UU|AA) "'
@@ -76,6 +76,19 @@ chk "live cache: no re-cache warning"                    '[[ "$fresh" != *expire
 chk "expired cache: warns with context size and cost"  '[[ "$old" == *"expired"*"200.0k"*"\$1.25"* ]]'
 chk "no transcript: no countdown and no warning"        '[[ "$none" != *↺* && "$none" != *expired* ]]'
 chk "spend rate: \$3 in 30 min = \$6/h"              '[[ "$fresh" == *"\$6/h"* ]]'
+# Re-cache price by model: 5-minute cache-write price from https://platform.claude.com/docs/en/about-claude/pricing
+recache_cost() {   # $1 = model display name, $2 = context tokens
+  echo "{\"model\":{\"display_name\":\"$1\"},\"context_window\":{\"context_window_size\":1000000,\"current_usage\":{\"input_tokens\":$2}},\"transcript_path\":\"$TMP/t_old.jsonl\"}" \
+    | timeout_run "$TMP/statusline.sh" 2>/dev/null | grep -o 're-caches [^ ]* ≈ \$[0-9.]*' | sed 's/.*≈ //'
+}
+chk "price: Opus 5.5 = \$5 per MTok"        '[ "$(recache_cost "Opus 5.5" 200000)" = "\$1.00" ]'
+chk "price: Opus 5 = \$6.25 per MTok"       '[ "$(recache_cost "Opus 5" 200000)" = "\$1.25" ]'
+chk "price: Sonnet 5.5 = \$2.50 per MTok"   '[ "$(recache_cost "Sonnet 5.5" 200000)" = "\$0.50" ]'
+chk "price: Sonnet 4.6 = \$3.75 per MTok"   '[ "$(recache_cost "Sonnet 4.6" 200000)" = "\$0.75" ]'
+chk "price: Haiku 4.5 = \$1.25 per MTok"    '[ "$(recache_cost "Haiku 4.5" 200000)" = "\$0.25" ]'
+chk "price: Haiku 5.5 up to 100k = \$0.125" '[ "$(recache_cost "Haiku 5.5" 80000)" = "\$0.01" ]'
+chk "price: Haiku 5.5 over 100k = \$0.625"  '[ "$(recache_cost "Haiku 5.5" 160000)" = "\$0.10" ]'
+chk "price: Fable 5.1 = \$12.50 per MTok"   '[ "$(recache_cost "Fable 5.1" 200000)" = "\$2.50" ]'
 chk "STATUSLINE_RECACHE_USD_PER_MTOK changes the cost"   '[[ "$(echo "$NO_GIT,\"transcript_path\":\"$TMP/t_old.jsonl\"}" | STATUSLINE_RECACHE_USD_PER_MTOK=10 timeout_run "$TMP/statusline.sh" 2>/dev/null)" == *"\$2.00"* ]]'
 
 chk "--version works"  '"$TMP/statusline.sh" --version | grep -q "^claude-code-statusline [0-9]"'
