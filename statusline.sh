@@ -259,8 +259,9 @@ fi
 CACHE_TTL=300
 alerta=""
 if [ -n "$transcript" ] && [ -f "$transcript" ]; then
-  mt=$(stat -f %m "$transcript" 2>/dev/null || stat -c %Y "$transcript" 2>/dev/null)
-  if [ -n "$mt" ]; then
+  # GNU stat first: on Linux `stat -f` means "filesystem status" and prints garbage instead of failing
+  mt=$(stat -c %Y "$transcript" 2>/dev/null || stat -f %m "$transcript" 2>/dev/null)
+  if [[ "$mt" =~ ^[0-9]+$ ]]; then
     left=$(( mt + CACHE_TTL - $(date +%s) ))
     hm=$(date -r $(( mt + CACHE_TTL )) +%H:%M 2>/dev/null || date -d "@$(( mt + CACHE_TTL ))" +%H:%M 2>/dev/null)
     if [ "$left" -gt 60 ]; then ttl="${GREEN}↺${hm}${R}"
