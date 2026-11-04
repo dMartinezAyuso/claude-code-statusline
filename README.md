@@ -7,8 +7,10 @@
 Barra de estado personalizada de 3 líneas para [Claude Code](https://claude.com/claude-code):
 
 1. Modelo y esfuerzo · proyecto · rama git (↑ahead ↓behind) · estado git · PR
-2. Contexto · límites de uso 5h/7d con cuenta atrás · coste · caché de prompt · tokens · duración · líneas
+2. Contexto · límites de uso 5h/7d con cuenta atrás · coste y ritmo $/h · caché de prompt con hora de caducidad · tokens · duración · líneas
 3. Todos los ficheros cambiados respecto a `HEAD`. **Cmd+clic** en uno abre su diff en el navegador.
+
+If the prompt cache expires while the context is large, a warning line shows the estimated cost of re-caching it (the price can be adjusted with `STATUSLINE_RECACHE_USD_PER_MTOK`).
 
 El enlace `ⓘ ayuda` abre una leyenda con el significado de cada símbolo.
 

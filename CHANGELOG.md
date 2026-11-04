@@ -4,6 +4,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 Los cambios de seguridad se marcan con **[seguridad]**.
 
 ## [Sin publicar]
+### Añadido
+- Prompt cache expiry time (`↺HH:MM`, 5 min after the last activity) next to the cache indicator.
+- Warning line when the cache expires with a context of 50k tokens or more: estimated cost of re-caching and a `/compact` hint. Price adjustable with `STATUSLINE_RECACHE_USD_PER_MTOK`.
+- Spend rate in `$/h` next to the cost, after 5 min of session.
 
 ## [0.1.0] - 2026-11-02
 ### Añadido
