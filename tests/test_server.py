@@ -1,5 +1,7 @@
 """Security and behaviour tests for diffserver.py (standard library only)."""
 import http.client
+import re
+from html.parser import HTMLParser
 import importlib
 import os
 import socket
@@ -11,6 +13,28 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOKEN = "t0k3n-for-tests"
+
+
+def script_text(body):
+    """Text of the <script> elements of an HTML page, read with a real HTML parser."""
+    chunks = []
+
+    class P(HTMLParser):
+        inside = False
+
+        def handle_starttag(self, tag, attrs):
+            self.inside = self.inside or tag.lower() == "script"
+
+        def handle_endtag(self, tag):
+            if tag.lower() == "script":
+                self.inside = False
+
+        def handle_data(self, data):
+            if self.inside:
+                chunks.append(data)
+
+    P().feed(body)
+    return "".join(chunks)
 
 
 def free_port():
@@ -276,7 +300,6 @@ class CollapsibleDiffPage(ServerBase):
         self.assertIn("default-src 'none'", csp)
         self.assertNotIn("script-src 'unsafe-inline'", csp)
         self.assertNotIn("unsafe-eval", csp)
-        import re
         nonce1 = re.search(r"script-src 'nonce-([^']+)'", csp).group(1)
         nonce2 = re.search(r"script-src 'nonce-([^']+)'", r2.getheader("Content-Security-Policy")).group(1)
         self.assertNotEqual(nonce1, nonce2)
@@ -284,15 +307,14 @@ class CollapsibleDiffPage(ServerBase):
         self.assertGreaterEqual(len(nonce1), 16)
 
     def test_the_script_contains_no_repository_data(self):
-        import re
         _, body = self.page()
-        script = re.search(r"<script[^>]*>(.*?)</script>", body, re.S).group(1)
+        script = script_text(body)
+        self.assertIn("addEventListener", script)   # we really are looking at the page's script
         for secret in ("a.txt", TOKEN, self.repo, "alert(1)"):
             with self.subTest(secret=secret):
                 self.assertNotIn(secret, script)
 
     def test_only_one_script_and_no_inline_handlers(self):
-        from html.parser import HTMLParser
         scripts, handlers = [], []
 
         class P(HTMLParser):
