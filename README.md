@@ -106,6 +106,8 @@ All settings are optional environment variables:
 - A link answers `403`: the token changed or the link is stale. Click a fresh link from the bar.
 - The server does not start: another program may be using port `8765`; set `STATUSLINE_PORT` to a free one.
 - Nothing appears after installing: restart Claude Code, and check that `statusLine` in `settings.json` points to `statusline.sh`.
+- I only see some of my changed files: that is the default `compact` mode (10 files and a `+N more` link). Set `STATUSLINE_FILES=full` to list them all, or `STATUSLINE_MAX_FILES=25` to list more.
+- The bar or the help page is not in the language I expected: run `./install.sh --lang <code>` (`en`, `es`, `fr`, `pt` or `de`). The language is chosen once, so changing your system language later does not change it.
 
 ## Updating
 
@@ -116,7 +118,7 @@ git pull --ff-only          # latest version
 git fetch --tags && git checkout vX.Y.Z   # see the latest under Releases
 ```
 
-Nothing needs restarting: on the next refresh (≤10 s) `statusline.sh` notices that `diffserver.py` has changed and restarts the server with the new code. The token is kept.
+Nothing needs restarting: on the next refresh (≤10 s) `statusline.sh` notices that `diffserver.py` has changed and restarts the server with the new code. The token and your language choice are kept.
 
 Before updating, read the [CHANGELOG](CHANGELOG.md): security changes are marked **[security]**. To hear about new versions use *Watch → Custom → Releases* on GitHub.
 

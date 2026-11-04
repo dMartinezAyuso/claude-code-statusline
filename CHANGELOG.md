@@ -4,17 +4,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and ver
 Security changes are marked **[security]**.
 
 ## [Unreleased]
-### Security
-- **[security]** The server only serves repositories that the bar has registered (`repos` file in the state folder). Before, the `d=` parameter accepted any directory, so a leaked link (it carries the token) could be used to read the changes of any git repository on the disk. Any other path now answers 400. Resolves the CodeQL alert `py/path-injection`.
-- **[security]** The diff page's script is allowed only by a random per-response nonce in the `Content-Security-Policy` (`script-src 'nonce-…'`); the help page still has no script. Tests check that the script contains no repository data and that no element has an event-handler attribute.
+
+## [0.3.0] - 2026-11-04
 ### Added
-- Changed-file list modes: `STATUSLINE_FILES=compact|full|count|off` and `STATUSLINE_MAX_FILES`. By default (`compact`) line 3 lists the first 10 files and a `+N more` link that opens the full page; `count` shows the total and the number of files per status.
-- The diff page folds: each file is a collapsible block with its status and `+added −removed` line counts, plus Collapse all / Expand all, a file filter, remembered state per repository, and it starts folded when there are more than 20 files. Opening a `#file` link unfolds that file.
-- New translated texts (`+N more`, the page's buttons and filter, the new help rows) in all five languages.
 - Languages: the bar labels and the help page (`/help`) and diff page are available in English, Spanish, French, Portuguese and German (`lang/*.json`).
 - `install.sh` detects the language from your locale (`LC_ALL`, `LC_MESSAGES`, `LANG`, or the macOS system language), saves it and keeps it; `./install.sh --lang <code>` changes it later, and `STATUSLINE_LANG` overrides it.
 - `install.sh` is idempotent: running it again reports "Already installed" and no longer creates a new backup of `settings.json`.
 - Installer tests (`tests/test_install.sh`) and a test that every language file has the same shape as the English one.
+- Changed-file list modes: `STATUSLINE_FILES=compact|full|count|off` and `STATUSLINE_MAX_FILES`. By default (`compact`) line 3 lists the first 10 files and a `+N more` link that opens the full page; `count` shows the total and the number of files per status.
+- The diff page folds: each file is a collapsible block with its status and `+added −removed` line counts, plus Collapse all / Expand all, a file filter, remembered state per repository, and it starts folded when there are more than 20 files. Opening a `#file` link unfolds that file.
+- New translated texts (`+N more`, the page's buttons and filter, the new help rows) in all five languages.
+### Security
+- **[security]** The server only serves repositories that the bar has registered (`repos` file in the state folder). Before, the `d=` parameter accepted any directory, so a leaked link (it carries the token) could be used to read the changes of any git repository on the disk. Any other path now answers 400. Resolves the CodeQL alert `py/path-injection`.
+- **[security]** The diff page's script is allowed only by a random per-response nonce in the `Content-Security-Policy` (`script-src 'nonce-…'`); the help page still has no script. Tests check that the script contains no repository data and that no element has an event-handler attribute.
 
 ## [0.2.1] - 2026-11-04
 ### Changed
