@@ -6,7 +6,8 @@
     "now": "ya",
     "exp": "cad.",
     "warn": "Caché caducada: el próximo prompt recachea {tokens} ≈ {cost} → /compact",
-    "more": "+{n} más"
+    "more": "+{n} más",
+    "warn_limit": "Caché caducada: el próximo prompt recachea {tokens}, lo que consume más de tu límite de uso → /compact"
   },
   "page": {
     "title": "Ayuda · barra de estado",
@@ -105,6 +106,10 @@
         [
           "$N.NN",
           "Coste de la sesión. Verde < 1 $, amarillo < 5 $, rojo a partir de 5 $."
+        ],
+        [
+          "≈$N.NN",
+          "Modo suscripción (Claude Code informa de tus límites de uso): el coste es solo el valor equivalente a precio de API, no dinero que pagues, así que sale atenuado, sin colores y sin ritmo $/h."
         ],
         [
           "$N/h",
@@ -212,6 +217,10 @@
         [
           "STATUSLINE_RECACHE_USD_PER_MTOK",
           "Precio por millón de tokens para estimar el coste de recachear. Por defecto, el precio de escritura de caché de 5 minutos del modelo activo según la página de precios de Anthropic (platform.claude.com/docs/en/about-claude/pricing)."
+        ],
+        [
+          "STATUSLINE_BILLING",
+          "auto (por defecto), api o subscription. auto elige suscripción cuando Claude Code informa de límites de uso (planes Pro/Max) y api en caso contrario; fíjalo para forzar uno. En modo suscripción una caché fría se indica como límite de uso y no como dinero."
         ],
         [
           "STATUSLINE_LANG",

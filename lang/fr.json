@@ -6,7 +6,8 @@
     "now": "déjà",
     "exp": "exp",
     "warn": "Cache expiré : le prochain prompt recrée {tokens} ≈ {cost} → /compact",
-    "more": "+{n} de plus"
+    "more": "+{n} de plus",
+    "warn_limit": "Cache expiré : le prochain prompt recrée {tokens}, ce qui consomme davantage de votre limite d'utilisation → /compact"
   },
   "page": {
     "title": "Aide · barre d'état",
@@ -105,6 +106,10 @@
         [
           "$N.NN",
           "Coût de la session. Vert < 1 $, jaune < 5 $, rouge à partir de 5 $."
+        ],
+        [
+          "≈$N.NN",
+          "Mode abonnement (Claude Code indique vos limites d'utilisation) : le coût n'est que la valeur équivalente au tarif API, pas de l'argent que vous payez ; il est donc atténué, sans couleurs, et sans rythme $/h."
         ],
         [
           "$N/h",
@@ -212,6 +217,10 @@
         [
           "STATUSLINE_RECACHE_USD_PER_MTOK",
           "Prix par million de tokens pour estimer le coût de recréation du cache. Par défaut, le prix d'écriture de cache de 5 minutes du modèle actif d'après la page tarifaire d'Anthropic (platform.claude.com/docs/en/about-claude/pricing)."
+        ],
+        [
+          "STATUSLINE_BILLING",
+          "auto (par défaut), api ou subscription. auto choisit abonnement quand Claude Code indique des limites d'utilisation (offres Pro/Max) et api sinon ; fixez-le pour en forcer un. En mode abonnement, un cache froid est signalé en limite d'utilisation et non en argent."
         ],
         [
           "STATUSLINE_LANG",

@@ -92,12 +92,21 @@ IFS=$'\x1f' read -r model effort dir ctx_size cur tin tout cost dur_ms added rem
 # Texts of the chosen language, one jq call; a missing key (or a broken file) falls back to English
 L_CACHE=cache; L_CLEAN="✔ clean"; L_HELP="ⓘ help"; L_NOW=now; L_EXP=exp
 L_WARN="Cache expired: the next prompt re-caches {tokens} ≈ {cost} → /compact"; L_MORE="+{n} more"
-IFS=$'\x1f' read -r t_cache t_clean t_help t_now t_exp t_warn t_more < <(
+L_WARN_LIMIT="Cache expired: the next prompt re-caches {tokens}, which uses more of your usage limit → /compact"
+IFS=$'\x1f' read -r t_cache t_clean t_help t_now t_exp t_warn t_more t_warn_limit < <(
   jq -rn --slurpfile en "$SCRIPT_DIR/lang/en.json" --slurpfile lg "$SCRIPT_DIR/lang/$LANG_CODE.json" \
-    '[ "cache", "clean", "help", "now", "exp", "warn", "more" ] | map(. as $k | ($lg[0].bar[$k] // $en[0].bar[$k] // "")) | join("\u001f")' 2>/dev/null
+    '[ "cache", "clean", "help", "now", "exp", "warn", "more", "warn_limit" ] | map(. as $k | ($lg[0].bar[$k] // $en[0].bar[$k] // "")) | join("\u001f")' 2>/dev/null
 )
 L_CACHE=${t_cache:-$L_CACHE}; L_CLEAN=${t_clean:-$L_CLEAN}; L_HELP=${t_help:-$L_HELP}
-L_NOW=${t_now:-$L_NOW}; L_EXP=${t_exp:-$L_EXP}; L_WARN=${t_warn:-$L_WARN}; L_MORE=${t_more:-$L_MORE}
+L_NOW=${t_now:-$L_NOW}; L_EXP=${t_exp:-$L_EXP}; L_WARN=${t_warn:-$L_WARN}; L_MORE=${t_more:-$L_MORE}; L_WARN_LIMIT=${t_warn_limit:-$L_WARN_LIMIT}
+
+# Billing mode. With a subscription (Pro/Max) Claude Code reports the usage limits and the cost is only the
+# API-equivalent value, not money you pay; with an API account it reports no limits and the cost is real.
+billing="${STATUSLINE_BILLING:-auto}"
+case "$billing" in api|subscription) ;; *) billing=auto ;; esac
+if [ "$billing" = auto ]; then
+  if [ -n "$h5" ] || [ -n "$d7" ]; then billing=subscription; else billing=api; fi
+fi
 
 # Colors
 R=$'\033[0m'; DIM=$'\033[2m'; BOLD=$'\033[1m'
@@ -288,7 +297,10 @@ if [ -n "$d7" ]; then
 fi
 
 # Cost
-if [ -n "$cost" ]; then
+if [ -n "$cost" ] && [ "$billing" = subscription ]; then
+  # Not money you pay: shown dimmed as an approximation, with no colour thresholds and no $/h rate
+  add2 "${DIM}≈\$$(printf '%.2f' "$cost")${R}"
+elif [ -n "$cost" ]; then
   if awk "BEGIN{exit !($cost >= 5)}"; then c=$RED; elif awk "BEGIN{exit !($cost >= 1)}"; then c=$YELLOW; else c=$GREEN; fi
   burn=""
   # Spend rate ($/h): only after 5 min of session, earlier it is just noise
@@ -340,8 +352,13 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
       price="${STATUSLINE_RECACHE_USD_PER_MTOK:-$price}"
       if [ "${cur:-0}" -ge 50000 ] 2>/dev/null; then
         tok_tag='{tokens}'; cost_tag='{cost}'
-        warning="${L_WARN//$tok_tag/$(fmt "$cur")}"
-        warning="${RED}${BOLD}${warning//$cost_tag/\$$(awk -v t="$cur" -v r="$price" 'BEGIN{printf "%.2f", t * r / 1000000}')}${R}"
+        if [ "$billing" = subscription ]; then
+          # With a subscription a cold cache costs usage limit, not money
+          warning="${RED}${BOLD}${L_WARN_LIMIT//$tok_tag/$(fmt "$cur")}${R}"
+        else
+          warning="${L_WARN//$tok_tag/$(fmt "$cur")}"
+          warning="${RED}${BOLD}${warning//$cost_tag/\$$(awk -v t="$cur" -v r="$price" 'BEGIN{printf "%.2f", t * r / 1000000}')}${R}"
+        fi
       fi
     fi
     cache_seg="${cache_seg:-${DIM}${L_CACHE}${R}} ${ttl}"

@@ -4,6 +4,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and ver
 Security changes are marked **[security]**.
 
 ## [Unreleased]
+### Added
+- Billing mode: the bar tells an API account (the cost is real money) from a subscription (the cost is only the API-equivalent value). It is detected from the usage limits that Claude Code reports, and `STATUSLINE_BILLING=auto|api|subscription` forces it. With a subscription the cost is dimmed with `≈`, has no colors and no `$/h` rate, and the cache warning refers to the usage limit instead of dollars. Documented in the README and the help page, translated in all five languages.
 
 ## [0.3.0] - 2026-11-04
 ### Added
