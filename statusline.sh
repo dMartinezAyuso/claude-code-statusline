@@ -62,7 +62,7 @@ ensure_server() {
 
 # A single jq call; \x1f separator to keep empty fields.
 IFS=$'\x1f' read -r model effort dir ctx_size cur tin tout cost dur_ms added removed \
-  h5 h5_reset d7 d7_reset hit pr_num pr_state vim agent fast transcript < <(
+  h5 h5_reset d7 d7_reset hit pr_num pr_state vim agent fast transcript pc_expires pc_cold pc_observed < <(
   echo "$input" | jq -r '[
     (.model.display_name // ""),
     (.effort.level // ""),
@@ -85,7 +85,10 @@ IFS=$'\x1f' read -r model effort dir ctx_size cur tin tout cost dur_ms added rem
     (.vim.mode // ""),
     (.agent.name // ""),
     (if .fast_mode then "1" else "" end),
-    (.transcript_path // "")
+    (.transcript_path // ""),
+    (.prompt_cache.expires_at // ""),
+    (.prompt_cache.recache_tokens_if_cold // ""),
+    (if .prompt_cache.caching_observed == false then "false" else "" end)
   ] | map(tostring) | join("\u001f")' 2>/dev/null
 )
 
@@ -323,46 +326,56 @@ if [ -n "$hit" ]; then
   cache_seg="${DIM}${L_CACHE}${R} ${c}${hp}%${R}"
 fi
 
-# Prompt cache expiry (5 min after the last activity, approximated with the transcript mtime).
+# Prompt cache expiry. Claude Code reports the exact moment (prompt_cache.expires_at, valid for the
+# 5-minute and the 1-hour cache) and how many tokens a cold cache has to rebuild; older versions do not,
+# so then it is estimated as 5 minutes after the last write to the transcript.
 # Once expired, a large context is fully re-cached on the next prompt: warn about it.
 CACHE_TTL=300
 warning=""
-if [ -n "$transcript" ] && [ -f "$transcript" ]; then
+expiry=""; cold_tokens="${cur:-0}"
+if [ "$pc_observed" = false ]; then
+  :   # Claude Code saw no prompt caching in this session: nothing to show
+elif [[ "$pc_expires" =~ ^[0-9]+$ ]]; then
+  expiry=$pc_expires
+  [[ "$pc_cold" =~ ^[0-9]+$ ]] && [ "$pc_cold" -gt 0 ] && cold_tokens=$pc_cold
+elif [ -n "$transcript" ] && [ -f "$transcript" ]; then
   # GNU stat first: on Linux `stat -f` means "filesystem status" and prints garbage instead of failing
   mt=$(stat -c %Y "$transcript" 2>/dev/null || stat -f %m "$transcript" 2>/dev/null)
-  if [[ "$mt" =~ ^[0-9]+$ ]]; then
-    left=$(( mt + CACHE_TTL - $(date +%s) ))
-    hm=$(date -r $(( mt + CACHE_TTL )) +%H:%M 2>/dev/null || date -d "@$(( mt + CACHE_TTL ))" +%H:%M 2>/dev/null)
-    if [ "$left" -gt 60 ]; then ttl="${GREEN}↺${hm}${R}"
-    elif [ "$left" -gt 0 ]; then ttl="${YELLOW}↺${hm}${R}"
-    else
-      ttl="${RED}${L_EXP} ${hm}${R}"
-      # 5-minute cache-write price per million tokens, from the official pricing table
-      # (https://platform.claude.com/docs/en/about-claude/pricing). STATUSLINE_RECACHE_USD_PER_MTOK overrides it.
-      m=$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')
-      if   [[ "$m" == *fable* || "$m" == *mythos* ]]; then price=12.50
-      elif [[ "$m" =~ opus[^0-9]*5\.5 ]]; then price=5.00
-      elif [[ "$m" == *opus* ]]; then price=6.25
-      elif [[ "$m" =~ sonnet[^0-9]*5 ]]; then price=2.50     # Sonnet 5 and 5.5 (not 4.x)
-      elif [[ "$m" == *sonnet* ]]; then price=3.75
-      elif [[ "$m" =~ haiku[^0-9]*5 ]]; then                  # Haiku 5.5 is cheaper up to 100k-token prompts
-        if [ "${cur:-0}" -le 100000 ] 2>/dev/null; then price=0.125; else price=0.625; fi
-      elif [[ "$m" == *haiku* ]]; then price=1.25
-      else price=6.25; fi
-      price="${STATUSLINE_RECACHE_USD_PER_MTOK:-$price}"
-      if [ "${cur:-0}" -ge 50000 ] 2>/dev/null; then
-        tok_tag='{tokens}'; cost_tag='{cost}'
-        if [ "$billing" = subscription ]; then
-          # With a subscription a cold cache costs usage limit, not money
-          warning="${RED}${BOLD}${L_WARN_LIMIT//$tok_tag/$(fmt "$cur")}${R}"
-        else
-          warning="${L_WARN//$tok_tag/$(fmt "$cur")}"
-          warning="${RED}${BOLD}${warning//$cost_tag/\$$(awk -v t="$cur" -v r="$price" 'BEGIN{printf "%.2f", t * r / 1000000}')}${R}"
-        fi
+  [[ "$mt" =~ ^[0-9]+$ ]] && expiry=$(( mt + CACHE_TTL ))
+fi
+if [ -n "$expiry" ]; then
+  left=$(( expiry - $(date +%s) ))
+  hm=$(date -r "$expiry" +%H:%M 2>/dev/null || date -d "@$expiry" +%H:%M 2>/dev/null)
+  if [ "$left" -gt 60 ]; then ttl="${GREEN}↺${hm}${R}"
+  elif [ "$left" -gt 0 ]; then ttl="${YELLOW}↺${hm}${R}"
+  else
+    ttl="${RED}${L_EXP} ${hm}${R}"
+    # 5-minute cache-write price per million tokens, from the official pricing table
+    # (https://platform.claude.com/docs/en/about-claude/pricing). STATUSLINE_RECACHE_USD_PER_MTOK overrides it.
+    m=$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')
+    if   [[ "$m" == *fable* || "$m" == *mythos* ]]; then price=12.50
+    elif [[ "$m" =~ opus[^0-9]*5\.5 ]]; then price=5.00
+    elif [[ "$m" == *opus* ]]; then price=6.25
+    elif [[ "$m" =~ sonnet[^0-9]*5 ]]; then price=2.50     # Sonnet 5 and 5.5 (not 4.x)
+    elif [[ "$m" == *sonnet* ]]; then price=3.75
+    elif [[ "$m" =~ haiku[^0-9]*5 ]]; then                  # Haiku 5.5 is cheaper up to 100k-token prompts
+      if [ "$cold_tokens" -le 100000 ] 2>/dev/null; then price=0.125; else price=0.625; fi
+    elif [[ "$m" == *haiku* ]]; then price=1.25
+    else price=6.25; fi
+    price="${STATUSLINE_RECACHE_USD_PER_MTOK:-$price}"
+    if [ "$cold_tokens" -ge 50000 ] 2>/dev/null; then
+      tok_tag='{tokens}'; cost_tag='{cost}'
+      if [ "$billing" = subscription ]; then
+        # With a subscription a cold cache costs usage limit, not money
+        warning="${RED}${BOLD}${L_WARN_LIMIT//$tok_tag/$(fmt "$cold_tokens")}${R}"
+      else
+        warning="${L_WARN//$tok_tag/$(fmt "$cold_tokens")}"
+        warning="${RED}${BOLD}${warning//$cost_tag/\$$(awk -v t="$cold_tokens" -v r="$price" 'BEGIN{printf "%.2f", t * r / 1000000}')}${R}"
       fi
     fi
-    cache_seg="${cache_seg:-${DIM}${L_CACHE}${R}} ${ttl}"
   fi
+  cache_seg="${cache_seg:-${DIM}${L_CACHE}${R}} ${ttl}"
+
 fi
 [ -n "$cache_seg" ] && add2 "$cache_seg"
 

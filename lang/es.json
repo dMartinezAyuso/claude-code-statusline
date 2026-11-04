@@ -121,7 +121,7 @@
         ],
         [
           "↺HH:MM",
-          "Hora a la que caduca la caché de prompts: 5 min después de la última actividad de la conversación (es una estimación, puede variar unos segundos). Verde mientras queda más de 1 min, después amarillo."
+          "Hora a la que caduca la caché de prompts, tal como la informa Claude Code (exacta, también para la caché de 1 hora). Las versiones antiguas de Claude Code no la informan, y entonces se estima como 5 min después de la última actividad. Verde mientras queda más de 1 min, después amarillo."
         ],
         [
           "cad. HH:MM",

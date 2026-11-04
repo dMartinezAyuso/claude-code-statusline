@@ -127,6 +127,37 @@ chk "api: a high cost is still coloured red"                          'echo "$NO
 chk "subscription warning is translated (es)"                         '[[ "$(bill_in "$LIMITS" STATUSLINE_LANG=es | plain)" == *"límite de uso"* ]]'
 chk "subscription warning is translated (de)"                         '[[ "$(bill_in "$LIMITS" STATUSLINE_LANG=de | plain)" == *"Nutzungslimit"* ]]'
 
+# Exact prompt cache data from Claude Code (prompt_cache.*) wins over the estimate from the transcript
+hm_of() { date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M; }
+# shellcheck disable=SC2163  # "$kv" is an assignment like VAR=value on purpose
+pc_in() {   # $1 = prompt_cache JSON object, $2 = transcript file, $3... = VAR=value
+  local pc="$1" tr="$2"; shift 2
+  echo "$NO_GIT,\"prompt_cache\":$pc,\"transcript_path\":\"$tr\"}" \
+    | ( for kv in "$@"; do export "$kv"; done; timeout_run "$TMP/statusline.sh" ) 2>/dev/null | plain
+}
+now=$(date +%s)
+touch "$TMP/t_fresh2.jsonl"
+fut=$((now + 600)); pst=$((now - 120)); far=$((now + 3000))
+o=$(pc_in "{\"expires_at\":$fut,\"ttl\":\"5m\",\"recache_tokens_if_cold\":90000}" "$TMP/t_old.jsonl")
+chk "exact expiry in the future wins over an old transcript"  '[[ "$o" == *"↺$(hm_of $fut)"* && "$o" != *expired* ]]'
+o=$(pc_in "{\"expires_at\":$pst,\"ttl\":\"5m\",\"recache_tokens_if_cold\":200000}" "$TMP/t_fresh2.jsonl")
+chk "exact expiry in the past wins over a fresh transcript"   '[[ "$o" == *"exp $(hm_of $pst)"* && "$o" == *"expired"* ]]'
+chk "the warning uses recache_tokens_if_cold, not the context" '[[ "$o" == *"re-caches 200.0k ≈ \$1.25"* ]]'
+o=$(pc_in "{\"expires_at\":$far,\"ttl\":\"1h\"}" "$TMP/t_old.jsonl")
+chk "a 1-hour cache is shown with its real expiry"            '[[ "$o" == *"↺$(hm_of $far)"* && "$o" != *expired* ]]'
+o=$(pc_in "{\"expires_at\":$pst,\"recache_tokens_if_cold\":30000}" "$TMP/t_fresh2.jsonl")
+chk "a cold cache under 50k tokens gives no warning"          '[[ "$o" == *"exp "* && "$o" != *expired* ]]'
+o=$(pc_in "{\"caching_observed\":false,\"expires_at\":$pst,\"recache_tokens_if_cold\":200000}" "$TMP/t_old.jsonl")
+chk "caching not observed: no countdown and no warning"       '[[ "$o" != *↺* && "$o" != *"exp "* && "$o" != *expired* ]]'
+o=$(pc_in "{\"expires_at\":null,\"warm\":false}" "$TMP/t_old.jsonl")
+chk "without an expiry it falls back to the transcript"       '[[ "$o" == *expired* ]]'
+o=$(pc_in "{\"expires_at\":$pst,\"recache_tokens_if_cold\":200000}" "$TMP/t_fresh2.jsonl" STATUSLINE_BILLING=subscription)
+chk "subscription: the exact tokens appear in the limit warning" '[[ "$o" == *"re-caches 200.0k"*"usage limit"* && "$o" != *"\$1.25"* ]]'
+o=$(pc_in "{\"expires_at\":$pst,\"recache_tokens_if_cold\":200000}" "$TMP/t_fresh2.jsonl" STATUSLINE_LANG=de)
+chk "the exact-data warning is translated"                    '[[ "$o" == *"Cache abgelaufen"*"200.0k"* ]]'
+o=$(pc_in "{\"expires_at\":$pst,\"recache_tokens_if_cold\":160000}" "$TMP/t_fresh2.jsonl" 'STATUSLINE_RECACHE_USD_PER_MTOK=10')
+chk "STATUSLINE_RECACHE_USD_PER_MTOK still applies"           '[[ "$o" == *"re-caches 160.0k ≈ \$1.60"* ]]'
+
 # Re-cache price by model: 5-minute cache-write price from https://platform.claude.com/docs/en/about-claude/pricing
 recache_cost() {   # $1 = model display name, $2 = context tokens
   echo "{\"model\":{\"display_name\":\"$1\"},\"context_window\":{\"context_window_size\":1000000,\"current_usage\":{\"input_tokens\":$2}},\"transcript_path\":\"$TMP/t_old.jsonl\"}" \
