@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   lint:
-    name: Lint y versión
+    name: Lint and version
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -31,7 +31,7 @@ jobs:
         run: ./scripts/check-version.sh
 
   test:
-    name: Pruebas (${{ matrix.os }}, Python ${{ matrix.python }})
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
