@@ -197,6 +197,10 @@ if [ -n "$dir" ]; then
     # Local diff server (127.0.0.1, read-only): started on its own if it is not running
     ensure_server
     top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
+    # Register the repository: the server serves only repositories listed here (one per line, private file)
+    if [ -n "$top" ] && [[ "$top" != *$'\n'* ]] && ! grep -qxF -- "$top" "$STATE_DIR/repos" 2>/dev/null; then
+      ( umask 077; printf '%s\n' "$top" >>"$STATE_DIR/repos" )
+    fi
     enc() { local x="$1"; x="${x//%/%25}"; x="${x// /%20}"; x="${x//#/%23}"; x="${x//\?/%3F}"; x="${x//&/%26}"; printf '%s' "$x"; }
     base="http://127.0.0.1:${PORT}/?t=${TOKEN}&d=$(enc "$top")"
     # Line 3+: every file changed against HEAD (alphabetical, stable order), wrapped at ~110 columns

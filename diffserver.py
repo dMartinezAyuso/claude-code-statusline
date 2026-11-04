@@ -59,6 +59,20 @@ except OSError:
     VERSION = "unknown"
 
 
+def registered_repo(requested):
+    """The registry entry equal to `requested` ("" if there is none). statusline.sh adds the top
+    level of every repository it runs in to the `repos` file of the state folder, one per line."""
+    try:
+        with open(os.path.join(STATE, "repos"), encoding="utf-8") as f:
+            known = f.read().splitlines()
+    except OSError:
+        return ""
+    for entry in known:
+        if entry and entry == requested:
+            return entry
+    return ""
+
+
 def git(repo, *args):
     try:
         r = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True,
@@ -258,10 +272,13 @@ class H(BaseHTTPRequestHandler):
         if urlparse(self.path).path == "/help":
             self.respond(help_page())
             return
-        repo = (q.get("d") or [""])[0]
-        top = git(repo, "rev-parse", "--show-toplevel").strip() if os.path.isdir(repo) else ""
+        # Only repositories the status bar has registered are served, so a leaked link cannot be
+        # used to read the changes of any other repository on the disk. `repo` is the entry of the
+        # registry that equals the request, never the request itself.
+        repo = registered_repo((q.get("d") or [""])[0])
+        top = git(repo, "rev-parse", "--show-toplevel").strip() if repo and os.path.isdir(repo) else ""
         if not top:
-            self.deny(400, b"d= must be a git repo")
+            self.deny(400, b"d= must be a repository the status bar knows: open the link from the bar")
             return
         nonce = secrets.token_urlsafe(16)
         self.respond(diff_page(top, nonce), nonce)

@@ -15,6 +15,7 @@ Security changes are marked **[security]**.
 - The diff page folds: each file is a collapsible block with its status and `+added −removed` line counts, plus Collapse all / Expand all, a file filter, remembered state per repository, and it starts folded when there are more than 20 files. Opening a `#file` link unfolds that file.
 - New translated texts (`+N more`, the page's buttons and filter, the new help rows) in all five languages.
 ### Security
+- **[security]** The server only serves repositories that the bar has registered (`repos` file in the state folder). Before, the `d=` parameter accepted any directory, so a leaked link (it carries the token) could be used to read the changes of any git repository on the disk. Any other path now answers 400. Resolves the CodeQL alert `py/path-injection`.
 - **[security]** The diff page's script is allowed only by a random per-response nonce in the `Content-Security-Policy` (`script-src 'nonce-…'`); the help page still has no script. Tests check that the script contains no repository data and that no element has an event-handler attribute.
 
 ## [0.2.1] - 2026-11-04

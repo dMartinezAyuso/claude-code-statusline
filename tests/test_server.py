@@ -75,6 +75,13 @@ class ServerBase(unittest.TestCase):
         cls.xss_name = "<img src=x onerror=alert(1)>.txt"
         with open(os.path.join(cls.repo, cls.xss_name), "w") as f:
             f.write("<script>alert(1)</script>\n")
+        cls.register(cls.repo)
+
+    @classmethod
+    def register(cls, path):
+        """What statusline.sh does: add the repository to the registry the server reads."""
+        with open(os.path.join(cls.tmp.name, "state", "repos"), "a") as f:
+            f.write(path + "\n")
 
     @classmethod
     def tearDownClass(cls):
@@ -332,6 +339,60 @@ class CollapsibleDiffPage(ServerBase):
         r, body = self.get(f"/help?t={TOKEN}")
         self.assertNotIn("<script", body)
         self.assertNotIn("script-src", r.getheader("Content-Security-Policy"))
+
+
+class RegisteredRepositories(ServerBase):
+    def make_repo(self, name):
+        path = os.path.join(self.tmp.name, name)
+        os.makedirs(path)
+        subprocess.run(["git", "-C", path, "init", "-q"], check=True, capture_output=True)
+        with open(os.path.join(path, "x.txt"), "w") as f:
+            f.write("secret-of-" + name + "\n")
+        return path
+
+    def test_a_repository_that_was_never_registered_is_refused(self):
+        other = self.make_repo("never-registered")
+        r, body = self.get(f"/?t={TOKEN}&d={other}")
+        self.assertEqual(r.status, 400)
+        self.assertNotIn("secret-of-never-registered", body)
+
+    def test_a_registered_repository_is_served(self):
+        other = self.make_repo("registered-later")
+        self.register(other)
+        r, body = self.get(f"/?t={TOKEN}&d={other}")
+        self.assertEqual(r.status, 200)
+        self.assertIn("secret-of-registered-later", body)
+
+    def test_the_registry_is_read_on_every_request(self):
+        other = self.make_repo("added-while-running")
+        self.assertEqual(self.get(f"/?t={TOKEN}&d={other}")[0].status, 400)
+        self.register(other)
+        self.assertEqual(self.get(f"/?t={TOKEN}&d={other}")[0].status, 200)
+
+    def test_path_tricks_do_not_reach_other_repositories(self):
+        other = self.make_repo("target")
+        sub = os.path.join(self.repo, "..", "target")
+        for d in (sub, other + "/", other + "/.", os.path.join(other, "..", "target"), "~", "/"):
+            with self.subTest(d=d):
+                self.assertEqual(self.get(f"/?t={TOKEN}&d={d}")[0].status, 400)
+
+    def test_without_a_registry_nothing_is_served(self):
+        reg = os.path.join(self.tmp.name, "state", "repos")
+        os.rename(reg, reg + ".bak")
+        try:
+            self.assertEqual(self.get(f"/?t={TOKEN}&d={self.repo}")[0].status, 400)
+        finally:
+            os.rename(reg + ".bak", reg)
+
+    def test_a_registered_path_that_is_no_longer_a_repo_is_refused(self):
+        gone = os.path.join(self.tmp.name, "gone")
+        os.makedirs(gone)          # registered but never a git repository
+        self.register(gone)
+        self.assertEqual(self.get(f"/?t={TOKEN}&d={gone}")[0].status, 400)
+
+    def test_the_token_is_still_required_for_a_registered_repository(self):
+        self.assertEqual(self.get(f"/?d={self.repo}")[0].status, 403)
+        self.assertEqual(self.get(f"/?t={TOKEN}&d={self.repo}", host="evil.com")[0].status, 403)
 
 
 if __name__ == "__main__":

@@ -102,6 +102,7 @@ All settings are optional environment variables:
 ## Troubleshooting
 
 - Run `./statusline.sh --doctor`: it checks the dependencies and prints the version and the state folder.
+- A link answers `400` ("open the link from the bar"): the repository is not registered, which happens if you deleted the `repos` file or typed the address by hand. Click a link from the bar; the repository registers itself when the bar runs in it.
 - A link answers `403`: the token changed or the link is stale. Click a fresh link from the bar.
 - The server does not start: another program may be using port `8765`; set `STATUSLINE_PORT` to a free one.
 - Nothing appears after installing: restart Claude Code, and check that `statusLine` in `settings.json` points to `statusline.sh`.
@@ -137,7 +138,7 @@ Worth knowing before installing:
 
 - The first time there is a git repo, `statusline.sh` **starts in the background** `diffserver.py`, an HTTP server on `127.0.0.1:8765` (configurable with `STATUSLINE_PORT`).
 - That server is **read-only**: it runs `git status` / `git diff` and renders HTML. It writes nothing to your repos.
-- State and token are stored in `~/.local/state/claude-code-statusline/` (`XDG_STATE_HOME`).
+- State is stored in `~/.local/state/claude-code-statusline/` (`XDG_STATE_HOME`): the token, the language, the list of repositories the bar has run in, and the server's pid.
 
 ## Security
 
@@ -147,7 +148,7 @@ The server exposes the uncommitted code of your repos, so it is protected:
 - A random 128-bit **secret token** (file with `600` permissions, folder `700`), required on every request and compared in constant time. A random website cannot read your diffs even if it guesses the port.
 - **`Host` validation**: any request whose `Host` is not `127.0.0.1:<port>` or `localhost:<port>` is rejected (defence against DNS rebinding).
 - `Content-Security-Policy`, `X-Content-Type-Options` and `Referrer-Policy` headers; content is escaped with `html.escape`. The help page has no script. The diff page has one script, allowed only by a random nonce generated for each response (`script-src 'nonce-…'`), and it holds no repository data: it only folds, unfolds and filters the blocks the server already rendered.
-- The `d=` parameter must be a git repo; otherwise 400.
+- **Only repositories you use the bar in are served.** `statusline.sh` registers the top level of each repository it runs in (file `repos` in the state folder, permissions `600`) and the server refuses any other `d=` with 400. So even if a link leaks, it cannot be used to read the changes of other repositories on your disk. Delete the `repos` file to forget them; they register again the next time the bar runs in them.
 
 The token is in the URL of the links, so anyone with access to your terminal session could see it: this is a local threat model meant to prevent access from the browser, not against another user with access to your account. To rotate it, delete `~/.local/state/claude-code-statusline/token` and restart the server (`pkill -f diffserver.py`).
 
