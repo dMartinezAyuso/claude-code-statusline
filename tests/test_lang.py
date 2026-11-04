@@ -52,7 +52,7 @@ class Languages(unittest.TestCase):
 
     def test_placeholders_are_kept(self):
         needed = {("bar", "warn"): ["{tokens}", "{cost}"], ("diff", "title"): ["{repo}", "{count}"],
-                  ("diff", "truncated"): ["{kib}"], ("bar", "more"): ["{n}"]}
+                  ("diff", "truncated"): ["{kib}"], ("bar", "more"): ["{n}"], ("bar", "warn_limit"): ["{tokens}"]}
         for c in codes():
             d = load(c)
             for (group, key), placeholders in needed.items():
@@ -60,11 +60,16 @@ class Languages(unittest.TestCase):
                     with self.subTest(code=c, key=f"{group}.{key}", placeholder=p):
                         self.assertIn(p, d[group][key])
 
+    def test_the_subscription_warning_has_no_money_in_it(self):
+        for c in codes():
+            with self.subTest(code=c):
+                self.assertNotIn("{cost}", load(c)["bar"]["warn_limit"])
+
     def test_setting_names_and_symbols_are_not_translated(self):
         # The environment variable names must stay identical in every language
         for c in codes():
             blob = json.dumps(load(c), ensure_ascii=False)
-            for name in ("STATUSLINE_PORT", "STATUSLINE_LANG", "STATUSLINE_RECACHE_USD_PER_MTOK", "STATUSLINE_BURN_WARN", "STATUSLINE_FILES", "STATUSLINE_MAX_FILES"):
+            for name in ("STATUSLINE_PORT", "STATUSLINE_LANG", "STATUSLINE_RECACHE_USD_PER_MTOK", "STATUSLINE_BURN_WARN", "STATUSLINE_FILES", "STATUSLINE_MAX_FILES", "STATUSLINE_BILLING"):
                 with self.subTest(code=c, name=name):
                     self.assertIn(name, blob)
 

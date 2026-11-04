@@ -53,6 +53,15 @@ Manual installation: in `settings.json`
 
 Tested against the Claude Code statusline JSON of November 2026. Fields that do not exist are simply not drawn.
 
+## Subscription or API
+
+The cost that Claude Code reports is always in US dollars and means two different things:
+
+- **API account** (pay per use): it is real money. The bar shows it in green/yellow/red by how much it is, shows the `$/h` rate, and the cache warning gives the cost of re-caching in dollars.
+- **Subscription** (Pro or Max): you pay a flat fee, so the number is only the API-equivalent value. The bar shows it dimmed with a `≈` (`≈$12.40`), without colors and without the `$/h` rate, and the cache warning says it uses more of your **usage limit** instead of giving a price. The `5h` and `7d` limit bars are what matter here.
+
+The mode is detected automatically: Claude Code reports the usage limits (`rate_limits`) only with a subscription. Claude Code does not report which plan you have, so Pro and Max look the same. Set `STATUSLINE_BILLING=api` or `STATUSLINE_BILLING=subscription` to force one. All amounts stay in US dollars.
+
 ## Changed files
 
 With many changed files the third line would fill the screen, so by default it lists the first 10 and ends with a **`+N more`** link that opens the page with all of them. Choose how it looks with two variables:
@@ -90,6 +99,7 @@ All settings are optional environment variables:
 | Variable | Default | What it does |
 |---|---|---|
 | `STATUSLINE_PORT` | `8765` | Port of the local diff server (always bound to `127.0.0.1`). |
+| `STATUSLINE_BILLING` | `auto` | `auto`, `api` or `subscription`: how the cost is presented (see [Subscription or API](#subscription-or-api)). |
 | `STATUSLINE_FILES` | `compact` | How the changed-file list is shown: `full`, `compact`, `count` or `off`. |
 | `STATUSLINE_MAX_FILES` | `10` | How many files `compact` lists before `+N more`. |
 | `STATUSLINE_LANG` | saved by `install.sh` | Language of the bar and the help page: `en`, `es`, `fr`, `pt` or `de`. Overrides the saved language. |

@@ -6,7 +6,8 @@
     "now": "now",
     "exp": "exp",
     "warn": "Cache expired: the next prompt re-caches {tokens} ≈ {cost} → /compact",
-    "more": "+{n} more"
+    "more": "+{n} more",
+    "warn_limit": "Cache expired: the next prompt re-caches {tokens}, which uses more of your usage limit → /compact"
   },
   "page": {
     "title": "Help · status bar",
@@ -105,6 +106,10 @@
         [
           "$N.NN",
           "Session cost. Green < $1, yellow < $5, red from $5."
+        ],
+        [
+          "≈$N.NN",
+          "Subscription mode (Claude Code reports your usage limits): the cost is only the API-equivalent value, not money you pay, so it is dimmed, has no colors and there is no $/h rate."
         ],
         [
           "$N/h",
@@ -212,6 +217,10 @@
         [
           "STATUSLINE_RECACHE_USD_PER_MTOK",
           "Price per million tokens used to estimate the re-cache cost. By default the 5-minute cache-write price of the active model from Anthropic's pricing page (platform.claude.com/docs/en/about-claude/pricing)."
+        ],
+        [
+          "STATUSLINE_BILLING",
+          "auto (default), api or subscription. auto picks subscription when Claude Code reports usage limits (Pro/Max plans) and api otherwise; set it to force one. In subscription mode a cold cache is reported as usage limit instead of money."
         ],
         [
           "STATUSLINE_LANG",

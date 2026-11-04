@@ -6,7 +6,8 @@
     "now": "jetzt",
     "exp": "abgel.",
     "warn": "Cache abgelaufen: der nächste Prompt baut {tokens} ≈ {cost} neu auf → /compact",
-    "more": "+{n} weitere"
+    "more": "+{n} weitere",
+    "warn_limit": "Cache abgelaufen: der nächste Prompt baut {tokens} neu auf und verbraucht mehr von deinem Nutzungslimit → /compact"
   },
   "page": {
     "title": "Hilfe · Statusleiste",
@@ -105,6 +106,10 @@
         [
           "$N.NN",
           "Kosten der Sitzung. Grün < 1 $, gelb < 5 $, rot ab 5 $."
+        ],
+        [
+          "≈$N.NN",
+          "Abo-Modus (Claude Code meldet deine Nutzungslimits): Die Kosten sind nur der API-Gegenwert, kein Geld, das du zahlst. Deshalb sind sie abgeblendet, ohne Farben und ohne $/h-Rate."
         ],
         [
           "$N/h",
@@ -212,6 +217,10 @@
         [
           "STATUSLINE_RECACHE_USD_PER_MTOK",
           "Preis pro Million Tokens zur Schätzung der Kosten für den Cache-Neuaufbau. Standard ist der 5-Minuten-Cache-Schreibpreis des aktiven Modells laut Preisseite von Anthropic (platform.claude.com/docs/en/about-claude/pricing)."
+        ],
+        [
+          "STATUSLINE_BILLING",
+          "auto (Standard), api oder subscription. auto wählt Abo, wenn Claude Code Nutzungslimits meldet (Pro/Max-Tarife), sonst api; setze es, um einen Modus zu erzwingen. Im Abo-Modus wird ein kalter Cache als Nutzungslimit statt als Geld angegeben."
         ],
         [
           "STATUSLINE_LANG",

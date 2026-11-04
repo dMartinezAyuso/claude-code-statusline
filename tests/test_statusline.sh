@@ -11,6 +11,8 @@ trap 'kill "$(cat "$TMP/state/claude-code-statusline/server.pid" 2>/dev/null)" 2
 timeout_run() { perl -e 'alarm 20; exec @ARGV' -- "$@"; }
 # Waits (up to 15 s) for the port to accept connections: slow runners take a while to start Python
 wait_server() { local i; for i in $(seq 1 30); do nc -z -w 1 127.0.0.1 "$STATUSLINE_PORT" >/dev/null 2>&1 && return 0; sleep 0.5; done; return 1; }
+# Output without colour codes and OSC 8 links, to compare plain text
+plain() { perl -pe 's/\e\[[0-9;]*m//g; s/\e\]8;;[^\a]*\a//g'; }
 ok()  { printf '  ✔ %s\n' "$1"; }
 bad() { printf '  ✖ %s\n' "$1"; failures=$((failures + 1)); }
 chk() { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
@@ -102,6 +104,29 @@ chk "burn: STATUSLINE_BURN_WARN=5 turns \$6/h yellow"   '[ "$(burn_color 5 "")" 
 chk "burn: STATUSLINE_BURN_HIGH=5 turns \$6/h red"      '[ "$(burn_color "" 5)" = $'"'"'\033[31m$6/h'"'"' ]'
 chk "burn: invalid values fall back to the defaults"     '[ "$(burn_color abc -1)" = $'"'"'\033[2m$6/h'"'"' ]'
 
+# Billing mode: subscription (Claude Code reports usage limits) vs API (it does not)
+LIMITS='"rate_limits":{"five_hour":{"used_percentage":10,"resets_at":9999999999}}'
+# shellcheck disable=SC2163  # "$kv" is an assignment like VAR=value on purpose
+bill_in() {   # $1 = extra JSON fields (or empty), $2... = VAR=value
+  local extra="$1"; shift
+  echo "$NO_GIT${extra:+,$extra},\"transcript_path\":\"$TMP/t_old.jsonl\"}" \
+    | ( for kv in "$@"; do export "$kv"; done; timeout_run "$TMP/statusline.sh" ) 2>/dev/null
+}
+api=$(bill_in "" | plain); sub=$(bill_in "$LIMITS" | plain)
+chk "api (no usage limits): the cost is plain, with the \$/h rate"   '[[ "$api" == *"\$3.00"* && "$api" == *"\$6/h"* && "$api" != *"≈\$3.00"* ]]'
+chk "api: the warning gives the re-cache cost in money"               '[[ "$api" == *"re-caches 200.0k ≈ \$1.25"* ]]'
+chk "subscription: the cost is shown as an approximation"             '[[ "$sub" == *"≈\$3.00"* ]]'
+chk "subscription: the \$/h rate is hidden"                          '[[ "$sub" != *"/h"* ]]'
+chk "subscription: the 5h limit is still drawn"                       '[[ "$sub" == *"5h"* ]]'
+chk "subscription: the warning talks about the limit, not money"      '[[ "$sub" == *"uses more of your usage limit"* && "$sub" != *"\$1.25"* ]]'
+chk "STATUSLINE_BILLING=api forces api even with usage limits"        '[[ "$(bill_in "$LIMITS" STATUSLINE_BILLING=api | plain)" == *"\$6/h"* ]]'
+chk "STATUSLINE_BILLING=subscription forces it without usage limits"  '[[ "$(bill_in "" STATUSLINE_BILLING=subscription | plain)" == *"≈\$3.00"* ]]'
+chk "an invalid STATUSLINE_BILLING behaves as auto"                   '[[ "$(bill_in "" STATUSLINE_BILLING=nope | plain)" == *"\$6/h"* && "$(bill_in "$LIMITS" STATUSLINE_BILLING=nope | plain)" == *"≈\$3.00"* ]]'
+chk "subscription: the cost is never coloured by dollar thresholds"   '! bill_in "$LIMITS" | grep -q $'"'"'\033\[3[13]m\$3.00'"'"'; ! bill_in "$LIMITS" | grep -q $'"'"'\033\[31m≈'"'"
+chk "api: a high cost is still coloured red"                          'echo "$NO_GIT,\"transcript_path\":\"$TMP/t_old.jsonl\"}" | sed "s/\"total_cost_usd\":3.0/\"total_cost_usd\":12.0/" | timeout_run "$TMP/statusline.sh" 2>/dev/null | grep -q $'"'"'\033\[31m\$12.00'"'"
+chk "subscription warning is translated (es)"                         '[[ "$(bill_in "$LIMITS" STATUSLINE_LANG=es | plain)" == *"límite de uso"* ]]'
+chk "subscription warning is translated (de)"                         '[[ "$(bill_in "$LIMITS" STATUSLINE_LANG=de | plain)" == *"Nutzungslimit"* ]]'
+
 # Re-cache price by model: 5-minute cache-write price from https://platform.claude.com/docs/en/about-claude/pricing
 recache_cost() {   # $1 = model display name, $2 = context tokens
   echo "{\"model\":{\"display_name\":\"$1\"},\"context_window\":{\"context_window_size\":1000000,\"current_usage\":{\"input_tokens\":$2}},\"transcript_path\":\"$TMP/t_old.jsonl\"}" \
@@ -146,7 +171,6 @@ chk "changing the language restarts the server" '[ "$(cat "$STATE/server.pid")" 
 chk "and the new server answers in that language" '[[ "$(curl -s --max-time 5 "http://127.0.0.1:$STATUSLINE_PORT/help?t=$(cat "$STATE/token")")" == *"barra de estado"* ]]'
 
 # File list modes: STATUSLINE_FILES=full|compact|count|off and STATUSLINE_MAX_FILES=N
-plain() { perl -pe 's/\e\[[0-9;]*m//g; s/\e\]8;;[^\a]*\a//g'; }
 git init -q "$TMP/big" && for i in $(seq -w 1 25); do echo x >"$TMP/big/f$i.txt"; done
 BIG='{"model":{"display_name":"M"},"workspace":{"current_dir":"'"$TMP/big"'"}}'
 # shellcheck disable=SC2163  # "$kv" is an assignment like VAR=value on purpose
