@@ -8,7 +8,7 @@ A custom 3-line status bar for [Claude Code](https://claude.com/claude-code):
 
 1. Model and effort · project · git branch (↑ahead ↓behind) · git state · PR
 2. Context · 5h/7d usage limits with countdown · cost and $/h rate · prompt cache with expiry time · tokens · duration · lines
-3. Every file changed against `HEAD`. **Cmd+click** on one opens its diff in the browser.
+3. The files changed against `HEAD`: the first 10, then a `+N more` link when there are more (see [Changed files](#changed-files)). **Cmd+click** on a file opens its diff in the browser.
 
 The `ⓘ help` link opens a legend explaining every symbol, color and setting.
 
@@ -53,6 +53,26 @@ Manual installation: in `settings.json`
 
 Tested against the Claude Code statusline JSON of November 2026. Fields that do not exist are simply not drawn.
 
+## Changed files
+
+With many changed files the third line would fill the screen, so by default it lists the first 10 and ends with a **`+N more`** link that opens the page with all of them. Choose how it looks with two variables:
+
+| `STATUSLINE_FILES` | What line 3 shows |
+|---|---|
+| `compact` (default) | The first `STATUSLINE_MAX_FILES` files (10 by default) and `+N more`. With 10 files or fewer it looks exactly like `full`. |
+| `full` | Every changed file, wrapped over as many lines as needed. |
+| `count` | One line with the total and the number of files per status, for example `Δ 23 · M12 A3 D1 ?7`. All of it is a link to the page. |
+| `off` | Nothing. |
+
+The page that opens (**Cmd+click** on a file or on `+N more`) lets you fold what you do not need:
+
+- Every file is a collapsible block whose title shows the status and the lines added and removed (`+12 −3`), so a folded file still tells you how big the change is.
+- **Collapse all** and **Expand all** buttons, and a filter box that narrows both the list and the files.
+- With more than 20 changed files the page starts folded; opening a file from the bar (or from the list at the top) unfolds just that one.
+- What you folded is remembered per repository in your browser.
+
+The page has a single small script, allowed by a one-time token, and it contains none of your repository data (see [Security](#security)).
+
 ## Languages
 
 The bar's labels and the help page (`ⓘ help`) are available in **English, Spanish, French, Portuguese and German**.
@@ -70,6 +90,8 @@ All settings are optional environment variables:
 | Variable | Default | What it does |
 |---|---|---|
 | `STATUSLINE_PORT` | `8765` | Port of the local diff server (always bound to `127.0.0.1`). |
+| `STATUSLINE_FILES` | `compact` | How the changed-file list is shown: `full`, `compact`, `count` or `off`. |
+| `STATUSLINE_MAX_FILES` | `10` | How many files `compact` lists before `+N more`. |
 | `STATUSLINE_LANG` | saved by `install.sh` | Language of the bar and the help page: `en`, `es`, `fr`, `pt` or `de`. Overrides the saved language. |
 | `STATUSLINE_BURN_WARN` | `15` | Spend rate (USD/hour) from which `$N/h` turns yellow. |
 | `STATUSLINE_BURN_HIGH` | `30` | Spend rate (USD/hour) from which `$N/h` turns red. |
@@ -122,7 +144,7 @@ The server exposes the uncommitted code of your repos, so it is protected:
 - It only listens on `127.0.0.1`.
 - A random 128-bit **secret token** (file with `600` permissions, folder `700`), required on every request and compared in constant time. A random website cannot read your diffs even if it guesses the port.
 - **`Host` validation**: any request whose `Host` is not `127.0.0.1:<port>` or `localhost:<port>` is rejected (defence against DNS rebinding).
-- `Content-Security-Policy`, `X-Content-Type-Options` and `Referrer-Policy` headers; content is escaped with `html.escape`.
+- `Content-Security-Policy`, `X-Content-Type-Options` and `Referrer-Policy` headers; content is escaped with `html.escape`. The help page has no script. The diff page has one script, allowed only by a random nonce generated for each response (`script-src 'nonce-…'`), and it holds no repository data: it only folds, unfolds and filters the blocks the server already rendered.
 - The `d=` parameter must be a git repo; otherwise 400.
 
 The token is in the URL of the links, so anyone with access to your terminal session could see it: this is a local threat model meant to prevent access from the browser, not against another user with access to your account. To rotate it, delete `~/.local/state/claude-code-statusline/token` and restart the server (`pkill -f diffserver.py`).

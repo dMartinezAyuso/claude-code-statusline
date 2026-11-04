@@ -5,7 +5,8 @@
     "help": "ⓘ ayuda",
     "now": "ya",
     "exp": "cad.",
-    "warn": "Caché caducada: el próximo prompt recachea {tokens} ≈ {cost} → /compact"
+    "warn": "Caché caducada: el próximo prompt recachea {tokens} ≈ {cost} → /compact",
+    "more": "+{n} más"
   },
   "page": {
     "title": "Ayuda · barra de estado",
@@ -15,7 +16,10 @@
     "title": "Cambios · {repo} ({count})",
     "none": "Sin cambios respecto a HEAD.",
     "no_text": "(sin cambios de texto)",
-    "truncated": "... diff truncado (más de {kib} KiB)"
+    "truncated": "... diff truncado (más de {kib} KiB)",
+    "collapse_all": "Plegar todo",
+    "expand_all": "Desplegar todo",
+    "filter": "Filtrar ficheros…"
   },
   "sections": [
     {
@@ -171,6 +175,14 @@
         [
           "?",
           "Nuevo, sin seguimiento."
+        ],
+        [
+          "+N más",
+          "Aparece cuando hay más ficheros cambiados que STATUSLINE_MAX_FILES. Haz Cmd+clic para abrir la página con todos."
+        ],
+        [
+          "Δ 23 · M12 A3 …",
+          "Modo contador: el total y cuántos ficheros hay por estado. Haz Cmd+clic para abrir la página con todos."
         ]
       ]
     },
@@ -188,6 +200,10 @@
         [
           "STATUSLINE_PORT",
           "Puerto de este servidor local (por defecto 8765)."
+        ],
+        [
+          "STATUSLINE_FILES / STATUSLINE_MAX_FILES",
+          "Cómo se muestra la lista de ficheros: full (todos), compact (por defecto: los primeros STATUSLINE_MAX_FILES, 10 por defecto, más un enlace +N más), count (solo los totales) u off."
         ],
         [
           "STATUSLINE_BURN_WARN / STATUSLINE_BURN_HIGH",

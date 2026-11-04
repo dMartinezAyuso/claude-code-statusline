@@ -5,7 +5,8 @@
     "help": "ⓘ aide",
     "now": "déjà",
     "exp": "exp",
-    "warn": "Cache expiré : le prochain prompt recrée {tokens} ≈ {cost} → /compact"
+    "warn": "Cache expiré : le prochain prompt recrée {tokens} ≈ {cost} → /compact",
+    "more": "+{n} de plus"
   },
   "page": {
     "title": "Aide · barre d'état",
@@ -15,7 +16,10 @@
     "title": "Modifications · {repo} ({count})",
     "none": "Aucune modification par rapport à HEAD.",
     "no_text": "(aucune modification de texte)",
-    "truncated": "... diff tronqué (plus de {kib} Kio)"
+    "truncated": "... diff tronqué (plus de {kib} Kio)",
+    "collapse_all": "Tout replier",
+    "expand_all": "Tout déplier",
+    "filter": "Filtrer les fichiers…"
   },
   "sections": [
     {
@@ -171,6 +175,14 @@
         [
           "?",
           "Nouveau, non suivi."
+        ],
+        [
+          "+N de plus",
+          "Apparaît quand il y a plus de fichiers modifiés que STATUSLINE_MAX_FILES. Cmd+clic pour ouvrir la page avec tous les fichiers."
+        ],
+        [
+          "Δ 23 · M12 A3 …",
+          "Mode compteur : le total et le nombre de fichiers par statut. Cmd+clic pour ouvrir la page avec tous les fichiers."
         ]
       ]
     },
@@ -188,6 +200,10 @@
         [
           "STATUSLINE_PORT",
           "Port de ce serveur local (8765 par défaut)."
+        ],
+        [
+          "STATUSLINE_FILES / STATUSLINE_MAX_FILES",
+          "Affichage de la liste des fichiers : full (tous), compact (par défaut : les STATUSLINE_MAX_FILES premiers, 10 par défaut, plus un lien +N de plus), count (seulement les totaux) ou off."
         ],
         [
           "STATUSLINE_BURN_WARN / STATUSLINE_BURN_HIGH",

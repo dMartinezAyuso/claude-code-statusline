@@ -12,6 +12,7 @@ It protects against **malicious web pages** trying to read your diffs through `1
 It does **not** protect against another user with access to your account or your machine: the token is in a file owned by your user and in the terminal URLs.
 
 ## Supply chain measures
+- The only script the server ever sends is the diff page's folding script: it is allowed by a per-response random nonce in the `Content-Security-Policy`, contains no repository data and no `eval`, and the pages carry no inline event handlers.
 - No external dependencies (only the Python standard library and system utilities).
 - GitHub Actions pinned by SHA, updated by Dependabot.
 - Workflows with minimal permissions (`contents: read`; only the release has `contents: write`).

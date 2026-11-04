@@ -5,7 +5,8 @@
     "help": "ⓘ Hilfe",
     "now": "jetzt",
     "exp": "abgel.",
-    "warn": "Cache abgelaufen: der nächste Prompt baut {tokens} ≈ {cost} neu auf → /compact"
+    "warn": "Cache abgelaufen: der nächste Prompt baut {tokens} ≈ {cost} neu auf → /compact",
+    "more": "+{n} weitere"
   },
   "page": {
     "title": "Hilfe · Statusleiste",
@@ -15,7 +16,10 @@
     "title": "Änderungen · {repo} ({count})",
     "none": "Keine Änderungen gegenüber HEAD.",
     "no_text": "(keine Textänderungen)",
-    "truncated": "... Diff gekürzt (mehr als {kib} KiB)"
+    "truncated": "... Diff gekürzt (mehr als {kib} KiB)",
+    "collapse_all": "Alle einklappen",
+    "expand_all": "Alle ausklappen",
+    "filter": "Dateien filtern…"
   },
   "sections": [
     {
@@ -171,6 +175,14 @@
         [
           "?",
           "Neu, nicht verfolgt."
+        ],
+        [
+          "+N weitere",
+          "Erscheint, wenn es mehr geänderte Dateien gibt als STATUSLINE_MAX_FILES. Cmd+Klick öffnet die Seite mit allen."
+        ],
+        [
+          "Δ 23 · M12 A3 …",
+          "Zählmodus: die Gesamtzahl und wie viele Dateien pro Status. Cmd+Klick öffnet die Seite mit allen."
         ]
       ]
     },
@@ -188,6 +200,10 @@
         [
           "STATUSLINE_PORT",
           "Port dieses lokalen Servers (Standard 8765)."
+        ],
+        [
+          "STATUSLINE_FILES / STATUSLINE_MAX_FILES",
+          "Wie die Dateiliste angezeigt wird: full (alle), compact (Standard: die ersten STATUSLINE_MAX_FILES, standardmäßig 10, plus ein Link +N weitere), count (nur die Summen) oder off."
         ],
         [
           "STATUSLINE_BURN_WARN / STATUSLINE_BURN_HIGH",

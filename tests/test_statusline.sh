@@ -129,6 +129,46 @@ bar_in es >/dev/null; sleep 1; wait_server
 chk "changing the language restarts the server" '[ "$(cat "$STATE/server.pid")" != "$pid_before" ]'
 chk "and the new server answers in that language" '[[ "$(curl -s --max-time 5 "http://127.0.0.1:$STATUSLINE_PORT/help?t=$(cat "$STATE/token")")" == *"barra de estado"* ]]'
 
+# File list modes: STATUSLINE_FILES=full|compact|count|off and STATUSLINE_MAX_FILES=N
+plain() { perl -pe 's/\e\[[0-9;]*m//g; s/\e\]8;;[^\a]*\a//g'; }
+git init -q "$TMP/big" && for i in $(seq -w 1 25); do echo x >"$TMP/big/f$i.txt"; done
+BIG='{"model":{"display_name":"M"},"workspace":{"current_dir":"'"$TMP/big"'"}}'
+# shellcheck disable=SC2163  # "$kv" is an assignment like VAR=value on purpose
+files_out() { echo "$BIG" | ( for kv in "$@"; do export "$kv"; done; timeout_run "$TMP/statusline.sh" ) 2>/dev/null | plain; }
+d=$(files_out)
+chk "default (compact) lists the first 10 files"      '[[ "$d" == *f01.txt* && "$d" == *f10.txt* && "$d" != *f11.txt* ]]'
+chk "default (compact) says how many are hidden"      '[[ "$d" == *"+15 more"* ]]'
+d=$(files_out STATUSLINE_MAX_FILES=3)
+chk "STATUSLINE_MAX_FILES=3 lists 3 and hides 22"     '[[ "$d" == *f03.txt* && "$d" != *f04.txt* && "$d" == *"+22 more"* ]]'
+d=$(files_out STATUSLINE_FILES=full)
+chk "full lists every file and no 'more'"             '[[ "$d" == *f25.txt* && "$d" != *more* ]]'
+d=$(files_out STATUSLINE_FILES=count)
+chk "count shows the total and the untracked count"   '[[ "$d" == *"Δ 25 · ?25"* && "$d" != *f01.txt* ]]'
+d=$(files_out STATUSLINE_FILES=off)
+chk "off hides the list completely"                   '[[ "$d" != *Δ* && "$d" != *f01.txt* ]]'
+d=$(files_out STATUSLINE_FILES=bogus)
+chk "an invalid mode behaves as compact"              '[[ "$d" == *"+15 more"* ]]'
+d=$(files_out STATUSLINE_MAX_FILES=abc)
+chk "an invalid max behaves as 10"                    '[[ "$d" == *"+15 more"* ]]'
+d=$(files_out STATUSLINE_MAX_FILES=0)
+chk "a max of 0 behaves as 10"                        '[[ "$d" == *"+15 more"* ]]'
+d=$(files_out STATUSLINE_MAX_FILES=25)
+chk "with as many files as the max nothing is hidden" '[[ "$d" == *f25.txt* && "$d" != *more* ]]'
+d=$(echo "$JSON" | timeout_run "$TMP/statusline.sh" 2>/dev/null | plain)
+chk "few files: the list is unchanged (no 'more')"    '[[ "$d" == *"Δ"* && "$d" != *more* ]]'
+d=$(files_out STATUSLINE_LANG=es)
+chk "the 'more' text is translated"                   '[[ "$d" == *"+15 más"* ]]'
+raw=$(echo "$BIG" | timeout_run "$TMP/statusline.sh" 2>/dev/null)
+more_url=$(printf '%s' "$raw" | perl -ne 'print $1 if /\e\]8;;([^\a]*)\a(?:\e\[[0-9;]*m)*\+15 more/')
+chk "the 'more' link opens the full page (no anchor)" '[[ "$more_url" == http://127.0.0.1:*"/?t="*"&d="* && "$more_url" != *"#"* ]]'
+# Mixed statuses in count mode: M A D ? in this order, each with its number
+git init -q "$TMP/mix" && G2=(git -C "$TMP/mix" -c user.email=t@e.c -c user.name=t)
+for n in a b c; do echo "$n" >"$TMP/mix/$n.txt"; done; "${G2[@]}" add -A; "${G2[@]}" commit -qm base
+echo changed >"$TMP/mix/a.txt"; rm "$TMP/mix/b.txt"; echo new >"$TMP/mix/d.txt"; "${G2[@]}" add d.txt; echo u >"$TMP/mix/e.txt"
+MIX='{"model":{"display_name":"M"},"workspace":{"current_dir":"'"$TMP/mix"'"}}'
+d=$(echo "$MIX" | STATUSLINE_FILES=count timeout_run "$TMP/statusline.sh" 2>/dev/null | plain)
+chk "count breaks the total down by status"           '[[ "$d" == *"Δ 4 · M1 A1 D1 ?1"* ]]'
+
 chk "--version works"  '"$TMP/statusline.sh" --version | grep -q "^claude-code-statusline [0-9]"'
 chk "--doctor works"   '"$TMP/statusline.sh" --doctor >/dev/null'
 
