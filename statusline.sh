@@ -91,13 +91,13 @@ IFS=$'\x1f' read -r model effort dir ctx_size cur tin tout cost dur_ms added rem
 
 # Texts of the chosen language, one jq call; a missing key (or a broken file) falls back to English
 L_CACHE=cache; L_CLEAN="✔ clean"; L_HELP="ⓘ help"; L_NOW=now; L_EXP=exp
-L_WARN="Cache expired: the next prompt re-caches {tokens} ≈ {cost} → /compact"
-IFS=$'\x1f' read -r t_cache t_clean t_help t_now t_exp t_warn < <(
+L_WARN="Cache expired: the next prompt re-caches {tokens} ≈ {cost} → /compact"; L_MORE="+{n} more"
+IFS=$'\x1f' read -r t_cache t_clean t_help t_now t_exp t_warn t_more < <(
   jq -rn --slurpfile en "$SCRIPT_DIR/lang/en.json" --slurpfile lg "$SCRIPT_DIR/lang/$LANG_CODE.json" \
-    '[ "cache", "clean", "help", "now", "exp", "warn" ] | map(. as $k | ($lg[0].bar[$k] // $en[0].bar[$k] // "")) | join("\u001f")' 2>/dev/null
+    '[ "cache", "clean", "help", "now", "exp", "warn", "more" ] | map(. as $k | ($lg[0].bar[$k] // $en[0].bar[$k] // "")) | join("\u001f")' 2>/dev/null
 )
 L_CACHE=${t_cache:-$L_CACHE}; L_CLEAN=${t_clean:-$L_CLEAN}; L_HELP=${t_help:-$L_HELP}
-L_NOW=${t_now:-$L_NOW}; L_EXP=${t_exp:-$L_EXP}; L_WARN=${t_warn:-$L_WARN}
+L_NOW=${t_now:-$L_NOW}; L_EXP=${t_exp:-$L_EXP}; L_WARN=${t_warn:-$L_WARN}; L_MORE=${t_more:-$L_MORE}
 
 # Colors
 R=$'\033[0m'; DIM=$'\033[2m'; BOLD=$'\033[1m'
@@ -154,6 +154,11 @@ term_width() {
     echo "$w"
 }
 
+# How the changed-file list is shown: full | compact (default) | count | off, and how many files compact lists
+files_mode="${STATUSLINE_FILES:-compact}"
+case "$files_mode" in full|compact|count|off) ;; *) files_mode=compact ;; esac
+max_files="${STATUSLINE_MAX_FILES:-10}"; [[ "$max_files" =~ ^[1-9][0-9]*$ ]] || max_files=10
+
 # ---------- Line 1: model, project, git ----------
 l1=""
 if [ -n "$model" ]; then
@@ -195,26 +200,49 @@ if [ -n "$dir" ]; then
     enc() { local x="$1"; x="${x//%/%25}"; x="${x// /%20}"; x="${x//#/%23}"; x="${x//\?/%3F}"; x="${x//&/%26}"; printf '%s' "$x"; }
     base="http://127.0.0.1:${PORT}/?t=${TOKEN}&d=$(enc "$top")"
     # Line 3+: every file changed against HEAD (alphabetical, stable order), wrapped at ~110 columns
-    if [ $((n_s + n_m + n_u + n_c)) -gt 0 ]; then
+    if [ $((n_s + n_m + n_u + n_c)) -gt 0 ] && [ "$files_mode" != off ]; then
       width=$(( $(term_width) - 4 )); cur_len=0
       files_line="${DIM}Δ${R} "; cur_len=2
+      total=0; listed=0; cnt_M=0; cnt_A=0; cnt_D=0; cnt_R=0; cnt_U=0; cnt_Q=0
       while IFS= read -r line; do
         [ -z "$line" ] && continue
         st="${line:0:2}"; f="${line:3}"; f="${f##* -> }"; f="${f%\"}"; f="${f#\"}"
         case "$st" in
-          "??") mark="${DIM}?${R}" ;;
-          U?|?U|AA|DD) mark="${RED}U${R}" ;;   # conflicts: before A*/*D*, which would hide them
-          *D*) mark="${RED}D${R}" ;;
-          A*) mark="${GREEN}A${R}" ;;
-          R*) mark="${CYAN}R${R}" ;;
-          *) mark="${YELLOW}M${R}" ;;
+          "??") mark="${DIM}?${R}"; cnt_Q=$((cnt_Q + 1)) ;;
+          U?|?U|AA|DD) mark="${RED}U${R}"; cnt_U=$((cnt_U + 1)) ;;   # conflicts: before A*/*D*, which would hide them
+          *D*) mark="${RED}D${R}"; cnt_D=$((cnt_D + 1)) ;;
+          A*) mark="${GREEN}A${R}"; cnt_A=$((cnt_A + 1)) ;;
+          R*) mark="${CYAN}R${R}"; cnt_R=$((cnt_R + 1)) ;;
+          *) mark="${YELLOW}M${R}"; cnt_M=$((cnt_M + 1)) ;;
         esac
+        total=$((total + 1))
+        # compact lists only the first max_files; count lists none; full lists all
+        case "$files_mode" in
+          count) continue ;;
+          compact) [ "$listed" -ge "$max_files" ] && continue ;;
+        esac
+        listed=$((listed + 1))
         item_len=$(( ${#f} + 4 ))
         if [ "$cur_len" -gt 2 ] && [ $((cur_len + item_len)) -gt "$width" ]; then
           files_line+=$'\n'"  "; cur_len=2
         fi
         files_line+="${mark} "$'\033]8;;'"${base}#$(enc "$f")"$'\a'"${f}"$'\033]8;;\a'"  "; cur_len=$((cur_len + item_len))
       done < <(git -C "$dir" status --porcelain -uall 2>/dev/null)
+      if [ "$files_mode" = count ]; then
+        # One line: the total and how many files per status, all of it a link to the full page
+        files_line="${DIM}Δ${R} ${total} ${DIM}·${R}"
+        [ "$cnt_M" -gt 0 ] && files_line+=" ${YELLOW}M${cnt_M}${R}"
+        [ "$cnt_A" -gt 0 ] && files_line+=" ${GREEN}A${cnt_A}${R}"
+        [ "$cnt_D" -gt 0 ] && files_line+=" ${RED}D${cnt_D}${R}"
+        [ "$cnt_R" -gt 0 ] && files_line+=" ${CYAN}R${cnt_R}${R}"
+        [ "$cnt_U" -gt 0 ] && files_line+=" ${RED}U${cnt_U}${R}"
+        [ "$cnt_Q" -gt 0 ] && files_line+=" ${DIM}?${cnt_Q}${R}"
+        files_line=$'\033]8;;'"${base}"$'\a'"${files_line}"$'\033]8;;\a'
+      elif [ "$total" -gt "$listed" ]; then
+        # Hidden files: a link that opens the page with all of them
+        more_tag='{n}'
+        files_line+=$'\033]8;;'"${base}"$'\a'"${DIM}${L_MORE//$more_tag/$((total - listed))}${R}"$'\033]8;;\a'
+      fi
     fi
   fi
 fi

@@ -221,5 +221,96 @@ class Languages(ServerBase):
         self.assertEqual(self.get(f"/help?t={TOKEN}", host="evil.com")[0].status, 403)
 
 
+class CollapsibleDiffPage(ServerBase):
+    def page(self, lang=None):
+        if lang:
+            with open(os.path.join(self.tmp.name, "state", "lang"), "w") as f:
+                f.write(lang)
+        try:
+            return self.get(f"/?t={TOKEN}&d={self.repo}")
+        finally:
+            try:
+                os.remove(os.path.join(self.tmp.name, "state", "lang"))
+            except OSError:
+                pass
+
+    def test_each_file_is_a_details_element_open_by_default(self):
+        _, body = self.page()
+        self.assertEqual(body.count("<details"), 2)
+        self.assertEqual(body.count("<details open"), 2)
+
+    def test_summary_shows_status_name_and_line_counts(self):
+        _, body = self.page()
+        self.assertRegex(body, r"<summary>.*a\.txt.*\+1.*(−|-)1")
+
+    def test_many_files_start_collapsed(self):
+        extra = []
+        try:
+            for i in range(self.mod.AUTO_COLLAPSE_FILES + 1):
+                path = os.path.join(self.repo, f"many{i:02}.txt")
+                with open(path, "w") as f:
+                    f.write("x\n")
+                extra.append(path)
+            _, body = self.page()
+            self.assertGreater(body.count("<details"), self.mod.AUTO_COLLAPSE_FILES)
+            self.assertEqual(body.count("<details open"), 0)
+        finally:
+            for path in extra:
+                os.remove(path)
+
+    def test_toolbar_has_collapse_expand_and_filter_in_english(self):
+        _, body = self.page()
+        for text in ("Collapse all", "Expand all", "Filter files"):
+            with self.subTest(text=text):
+                self.assertIn(text, body)
+
+    def test_toolbar_is_translated(self):
+        _, body = self.page("es")
+        self.assertIn("Plegar todo", body)
+        self.assertIn("Desplegar todo", body)
+
+    def test_script_is_allowed_only_by_a_per_response_nonce(self):
+        r1, body1 = self.page()
+        r2, body2 = self.page()
+        csp = r1.getheader("Content-Security-Policy")
+        self.assertIn("default-src 'none'", csp)
+        self.assertNotIn("script-src 'unsafe-inline'", csp)
+        self.assertNotIn("unsafe-eval", csp)
+        import re
+        nonce1 = re.search(r"script-src 'nonce-([^']+)'", csp).group(1)
+        nonce2 = re.search(r"script-src 'nonce-([^']+)'", r2.getheader("Content-Security-Policy")).group(1)
+        self.assertNotEqual(nonce1, nonce2)
+        self.assertIn(f'<script nonce="{nonce1}">', body1)
+        self.assertGreaterEqual(len(nonce1), 16)
+
+    def test_the_script_contains_no_repository_data(self):
+        import re
+        _, body = self.page()
+        script = re.search(r"<script[^>]*>(.*?)</script>", body, re.S).group(1)
+        for secret in ("a.txt", TOKEN, self.repo, "alert(1)"):
+            with self.subTest(secret=secret):
+                self.assertNotIn(secret, script)
+
+    def test_only_one_script_and_no_inline_handlers(self):
+        from html.parser import HTMLParser
+        scripts, handlers = [], []
+
+        class P(HTMLParser):
+            def handle_starttag(self, tag, attrs):
+                if tag == "script":
+                    scripts.append(attrs)
+                handlers.extend((tag, n) for n, _ in attrs if n.lower().startswith("on"))
+
+        _, body = self.page()
+        P().feed(body)
+        self.assertEqual(len(scripts), 1)
+        self.assertEqual(handlers, [], "no element may carry an event-handler attribute")
+
+    def test_help_page_still_has_no_script_at_all(self):
+        r, body = self.get(f"/help?t={TOKEN}")
+        self.assertNotIn("<script", body)
+        self.assertNotIn("script-src", r.getheader("Content-Security-Policy"))
+
+
 if __name__ == "__main__":
     unittest.main()

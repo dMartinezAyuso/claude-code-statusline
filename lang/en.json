@@ -5,7 +5,8 @@
     "help": "ⓘ help",
     "now": "now",
     "exp": "exp",
-    "warn": "Cache expired: the next prompt re-caches {tokens} ≈ {cost} → /compact"
+    "warn": "Cache expired: the next prompt re-caches {tokens} ≈ {cost} → /compact",
+    "more": "+{n} more"
   },
   "page": {
     "title": "Help · status bar",
@@ -15,7 +16,10 @@
     "title": "Changes · {repo} ({count})",
     "none": "No changes against HEAD.",
     "no_text": "(no text changes)",
-    "truncated": "... diff truncated (more than {kib} KiB)"
+    "truncated": "... diff truncated (more than {kib} KiB)",
+    "collapse_all": "Collapse all",
+    "expand_all": "Expand all",
+    "filter": "Filter files…"
   },
   "sections": [
     {
@@ -171,6 +175,14 @@
         [
           "?",
           "New, untracked."
+        ],
+        [
+          "+N more",
+          "Appears when there are more changed files than STATUSLINE_MAX_FILES. Cmd+click it to open the page with all of them."
+        ],
+        [
+          "Δ 23 · M12 A3 …",
+          "Count mode: the total and how many files per status. Cmd+click it to open the page with all of them."
         ]
       ]
     },
@@ -188,6 +200,10 @@
         [
           "STATUSLINE_PORT",
           "Port of this local server (default 8765)."
+        ],
+        [
+          "STATUSLINE_FILES / STATUSLINE_MAX_FILES",
+          "How the file list is shown: full (all files), compact (default: the first STATUSLINE_MAX_FILES, 10 by default, plus a +N more link), count (only the totals) or off."
         ],
         [
           "STATUSLINE_BURN_WARN / STATUSLINE_BURN_HIGH",

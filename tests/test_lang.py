@@ -52,7 +52,7 @@ class Languages(unittest.TestCase):
 
     def test_placeholders_are_kept(self):
         needed = {("bar", "warn"): ["{tokens}", "{cost}"], ("diff", "title"): ["{repo}", "{count}"],
-                  ("diff", "truncated"): ["{kib}"]}
+                  ("diff", "truncated"): ["{kib}"], ("bar", "more"): ["{n}"]}
         for c in codes():
             d = load(c)
             for (group, key), placeholders in needed.items():
@@ -64,7 +64,7 @@ class Languages(unittest.TestCase):
         # The environment variable names must stay identical in every language
         for c in codes():
             blob = json.dumps(load(c), ensure_ascii=False)
-            for name in ("STATUSLINE_PORT", "STATUSLINE_LANG", "STATUSLINE_RECACHE_USD_PER_MTOK", "STATUSLINE_BURN_WARN"):
+            for name in ("STATUSLINE_PORT", "STATUSLINE_LANG", "STATUSLINE_RECACHE_USD_PER_MTOK", "STATUSLINE_BURN_WARN", "STATUSLINE_FILES", "STATUSLINE_MAX_FILES"):
                 with self.subTest(code=c, name=name):
                     self.assertIn(name, blob)
 

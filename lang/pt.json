@@ -5,7 +5,8 @@
     "help": "ⓘ ajuda",
     "now": "já",
     "exp": "exp",
-    "warn": "Cache expirado: o próximo prompt recria {tokens} ≈ {cost} → /compact"
+    "warn": "Cache expirado: o próximo prompt recria {tokens} ≈ {cost} → /compact",
+    "more": "+{n} mais"
   },
   "page": {
     "title": "Ajuda · barra de estado",
@@ -15,7 +16,10 @@
     "title": "Alterações · {repo} ({count})",
     "none": "Sem alterações em relação ao HEAD.",
     "no_text": "(sem alterações de texto)",
-    "truncated": "... diff truncado (mais de {kib} KiB)"
+    "truncated": "... diff truncado (mais de {kib} KiB)",
+    "collapse_all": "Recolher tudo",
+    "expand_all": "Expandir tudo",
+    "filter": "Filtrar ficheiros…"
   },
   "sections": [
     {
@@ -171,6 +175,14 @@
         [
           "?",
           "Novo, sem acompanhamento."
+        ],
+        [
+          "+N mais",
+          "Aparece quando há mais ficheiros alterados do que STATUSLINE_MAX_FILES. Cmd+clique para abrir a página com todos."
+        ],
+        [
+          "Δ 23 · M12 A3 …",
+          "Modo contador: o total e quantos ficheiros há por estado. Cmd+clique para abrir a página com todos."
         ]
       ]
     },
@@ -188,6 +200,10 @@
         [
           "STATUSLINE_PORT",
           "Porta deste servidor local (por omissão 8765)."
+        ],
+        [
+          "STATUSLINE_FILES / STATUSLINE_MAX_FILES",
+          "Como a lista de ficheiros é mostrada: full (todos), compact (por omissão: os primeiros STATUSLINE_MAX_FILES, 10 por omissão, mais uma ligação +N mais), count (só os totais) ou off."
         ],
         [
           "STATUSLINE_BURN_WARN / STATUSLINE_BURN_HIGH",
