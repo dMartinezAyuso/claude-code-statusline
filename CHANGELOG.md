@@ -4,6 +4,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and ver
 Security changes are marked **[security]**.
 
 ## [Unreleased]
+### Changed
+- The in-bar help page (`/help`) is now complete: vim mode, `exp HH:MM`, the warning line in its own section, settings and troubleshooting tips.
+- README documents the prompt cache indicator, the configuration variables, troubleshooting and platform support.
+- The re-cache cost estimate now uses the 5-minute cache-write prices of the official pricing table for each model (Fable/Mythos, Opus 5.5, Sonnet 5.x, Haiku 5.5 with its 100k-token tier, and the older families) instead of rough defaults.
+- The `$N/h` colour thresholds are configurable with `STATUSLINE_BURN_WARN` and `STATUSLINE_BURN_HIGH` (defaults 15 and 30 USD/h).
+- Contribution checklist asks to keep the legend and the README in sync with the bar.
 
 ## [0.2.0] - 2026-11-04
 ### Added

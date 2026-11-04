@@ -3,7 +3,7 @@
 ## Workflow
 1. Fork or create a branch: `git switch -c fix/whatever` (`feat/…`, `docs/…`, `ci/…`).
 2. Change and **test locally** (see below).
-3. Add a line to `CHANGELOG.md` under `[Unreleased]` (mark it **[security]** if it applies).
+3. Add a line to `CHANGELOG.md` under `[Unreleased]` (mark it **[security]** if it applies). If you change what the bar shows, also update the legend (`HELP` in `diffserver.py`, shown at `/help`) and the README.
 4. Open a PR against `main`; the template guides you. CI must be green (lint, tests on Linux and macOS, CodeQL).
 5. PRs are merged with *squash and merge*. The PR title becomes the commit message: make it clear.
 

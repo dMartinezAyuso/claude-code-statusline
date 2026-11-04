@@ -240,8 +240,12 @@ if [ -n "$cost" ]; then
   burn=""
   # Spend rate ($/h): only after 5 min of session, earlier it is just noise
   if [ -n "$dur_ms" ] && [ "$dur_ms" -ge 300000 ] 2>/dev/null; then
-    rate=$(awk -v c="$cost" -v d="$dur_ms" 'BEGIN{printf "%.0f", c / d * 3600000}')
-    if [ "$rate" -ge 30 ]; then bc=$RED; elif [ "$rate" -ge 15 ]; then bc=$YELLOW; else bc=$DIM; fi
+    # Colour thresholds in USD/hour (grey below warn, yellow from warn, red from high); invalid values use the defaults
+    burn_warn="${STATUSLINE_BURN_WARN:-15}"; [[ "$burn_warn" =~ ^[0-9]+(\.[0-9]+)?$ ]] || burn_warn=15
+    burn_high="${STATUSLINE_BURN_HIGH:-30}"; [[ "$burn_high" =~ ^[0-9]+(\.[0-9]+)?$ ]] || burn_high=30
+    read -r rate level < <(awk -v c="$cost" -v d="$dur_ms" -v w="$burn_warn" -v h="$burn_high" \
+      'BEGIN{r = c / d * 3600000; printf "%.0f %d", r, (r >= h) ? 2 : ((r >= w) ? 1 : 0)}')
+    case "$level" in 2) bc=$RED ;; 1) bc=$YELLOW ;; *) bc=$DIM ;; esac
     burn=" ${bc}\$${rate}/h${R}"
   fi
   add2 "${c}\$$(printf '%.2f' "$cost")${R}${burn}"
@@ -257,7 +261,7 @@ fi
 # Prompt cache expiry (5 min after the last activity, approximated with the transcript mtime).
 # Once expired, a large context is fully re-cached on the next prompt: warn about it.
 CACHE_TTL=300
-alerta=""
+warning=""
 if [ -n "$transcript" ] && [ -f "$transcript" ]; then
   # GNU stat first: on Linux `stat -f` means "filesystem status" and prints garbage instead of failing
   mt=$(stat -c %Y "$transcript" 2>/dev/null || stat -f %m "$transcript" 2>/dev/null)
@@ -268,13 +272,21 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
     elif [ "$left" -gt 0 ]; then ttl="${YELLOW}↺${hm}${R}"
     else
       ttl="${RED}exp ${hm}${R}"
-      # Cache-creation price per million tokens by model (STATUSLINE_RECACHE_USD_PER_MTOK overrides it)
-      case "$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')" in
-        *haiku*) tarifa=1.25 ;; *sonnet*) tarifa=3.75 ;; *) tarifa=6.25 ;;
-      esac
-      tarifa="${STATUSLINE_RECACHE_USD_PER_MTOK:-$tarifa}"
+      # 5-minute cache-write price per million tokens, from the official pricing table
+      # (https://platform.claude.com/docs/en/about-claude/pricing). STATUSLINE_RECACHE_USD_PER_MTOK overrides it.
+      m=$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')
+      if   [[ "$m" == *fable* || "$m" == *mythos* ]]; then price=12.50
+      elif [[ "$m" =~ opus[^0-9]*5\.5 ]]; then price=5.00
+      elif [[ "$m" == *opus* ]]; then price=6.25
+      elif [[ "$m" =~ sonnet[^0-9]*5 ]]; then price=2.50     # Sonnet 5 and 5.5 (not 4.x)
+      elif [[ "$m" == *sonnet* ]]; then price=3.75
+      elif [[ "$m" =~ haiku[^0-9]*5 ]]; then                  # Haiku 5.5 is cheaper up to 100k-token prompts
+        if [ "${cur:-0}" -le 100000 ] 2>/dev/null; then price=0.125; else price=0.625; fi
+      elif [[ "$m" == *haiku* ]]; then price=1.25
+      else price=6.25; fi
+      price="${STATUSLINE_RECACHE_USD_PER_MTOK:-$price}"
       if [ "${cur:-0}" -ge 50000 ] 2>/dev/null; then
-        alerta="${RED}${BOLD}Cache expired${R}${RED}: the next prompt re-caches $(fmt "$cur") ≈ \$$(awk -v t="$cur" -v r="$tarifa" 'BEGIN{printf "%.2f", t * r / 1000000}') → /compact${R}"
+        warning="${RED}${BOLD}Cache expired${R}${RED}: the next prompt re-caches $(fmt "$cur") ≈ \$$(awk -v t="$cur" -v r="$price" 'BEGIN{printf "%.2f", t * r / 1000000}') → /compact${R}"
       fi
     fi
     cache_seg="${cache_seg:-${DIM}cache${R}} ${ttl}"
@@ -303,6 +315,6 @@ fi
 
 [ -n "$l1" ] && printf '%s\n' "$l1"
 [ -n "$l2" ] && printf '%s\n' "$l2"
-[ -n "$alerta" ] && printf '%s\n' "$alerta"
+[ -n "$warning" ] && printf '%s\n' "$warning"
 [ -n "$files_line" ] && printf '%s\n' "$files_line"
 exit 0
