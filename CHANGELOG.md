@@ -4,13 +4,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and ver
 Security changes are marked **[security]**.
 
 ## [Unreleased]
-### Changed
-- All code, messages, documentation and templates are now in English (the bar labels `caché`, `✔ limpio` and `ⓘ ayuda` became `cache`, `✔ clean` and `ⓘ help`; the help page moved from `/ayuda` to `/help`).
 
+## [0.2.0] - 2026-11-04
 ### Added
 - Prompt cache expiry time (`↺HH:MM`, 5 min after the last activity) next to the cache indicator.
 - Warning line when the cache expires with a context of 50k tokens or more: estimated cost of re-caching and a `/compact` hint. Price adjustable with `STATUSLINE_RECACHE_USD_PER_MTOK`.
 - Spend rate in `$/h` next to the cost, after 5 min of session.
+### Changed
+- All code, messages, documentation and templates are now in English: the bar labels `caché`, `✔ limpio` and `ⓘ ayuda` became `cache`, `✔ clean` and `ⓘ help`, and the help page moved from `/ayuda` to `/help`.
+- CI job names are now in English (`Lint and version`, `Tests (...)`).
 
 ## [0.1.0] - 2026-11-02
 ### Added
