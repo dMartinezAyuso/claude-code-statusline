@@ -36,17 +36,28 @@ if [ ! -s "$STATE_DIR/token" ]; then
 fi
 TOKEN=$(cat "$STATE_DIR/token" 2>/dev/null)
 
+# Language: STATUSLINE_LANG, then the `lang` file of the state folder, then English.
+# Only the code of an existing lang/*.json file is accepted; "es_ES" counts as "es".
+resolve_lang() {
+  local code="${STATUSLINE_LANG:-}"
+  [ -z "$code" ] && code=$(cat "$STATE_DIR/lang" 2>/dev/null)
+  code=$(printf '%s' "$code" | tr '[:upper:]' '[:lower:]'); code=${code:0:2}
+  if [[ "$code" =~ ^[a-z][a-z]$ ]] && [ -f "$SCRIPT_DIR/lang/$code.json" ]; then printf '%s' "$code"; else printf 'en'; fi
+}
+LANG_CODE=$(resolve_lang)
+
 # Starts the diff server if it is not running; if it runs a different version of the code
 # (e.g. after a `git pull`), restarts it so old code is never left running.
 ensure_server() {
-  local stamp; stamp=$(cksum <"$SCRIPT_DIR/diffserver.py" 2>/dev/null | cut -d' ' -f1,2)
+  # The stamp covers the server code, the language files and the chosen language
+  local stamp; stamp=$({ cat "$SCRIPT_DIR/diffserver.py" "$SCRIPT_DIR"/lang/*.json 2>/dev/null; printf '%s' "$LANG_CODE"; } | cksum | cut -d' ' -f1,2)
   if nc -z -w 1 127.0.0.1 "$PORT" 2>/dev/null; then
     [ "$(cat "$STATE_DIR/server.stamp" 2>/dev/null)" = "$stamp" ] && return
     [ -s "$STATE_DIR/server.pid" ] && kill "$(cat "$STATE_DIR/server.pid")" 2>/dev/null
     sleep 0.3
   fi
   printf '%s' "$stamp" >"$STATE_DIR/server.stamp"
-  (STATUSLINE_PORT="$PORT" STATUSLINE_STATE="$STATE_DIR" nohup python3 "$SCRIPT_DIR/diffserver.py" >/dev/null 2>&1 &)
+  (STATUSLINE_PORT="$PORT" STATUSLINE_STATE="$STATE_DIR" STATUSLINE_LANG="$LANG_CODE" nohup python3 "$SCRIPT_DIR/diffserver.py" >/dev/null 2>&1 &)
 }
 
 # A single jq call; \x1f separator to keep empty fields.
@@ -78,7 +89,17 @@ IFS=$'\x1f' read -r model effort dir ctx_size cur tin tout cost dur_ms added rem
   ] | map(tostring) | join("\u001f")' 2>/dev/null
 )
 
-# Colores
+# Texts of the chosen language, one jq call; a missing key (or a broken file) falls back to English
+L_CACHE=cache; L_CLEAN="✔ clean"; L_HELP="ⓘ help"; L_NOW=now; L_EXP=exp
+L_WARN="Cache expired: the next prompt re-caches {tokens} ≈ {cost} → /compact"
+IFS=$'\x1f' read -r t_cache t_clean t_help t_now t_exp t_warn < <(
+  jq -rn --slurpfile en "$SCRIPT_DIR/lang/en.json" --slurpfile lg "$SCRIPT_DIR/lang/$LANG_CODE.json" \
+    '[ "cache", "clean", "help", "now", "exp", "warn" ] | map(. as $k | ($lg[0].bar[$k] // $en[0].bar[$k] // "")) | join("\u001f")' 2>/dev/null
+)
+L_CACHE=${t_cache:-$L_CACHE}; L_CLEAN=${t_clean:-$L_CLEAN}; L_HELP=${t_help:-$L_HELP}
+L_NOW=${t_now:-$L_NOW}; L_EXP=${t_exp:-$L_EXP}; L_WARN=${t_warn:-$L_WARN}
+
+# Colors
 R=$'\033[0m'; DIM=$'\033[2m'; BOLD=$'\033[1m'
 CYAN=$'\033[36m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; RED=$'\033[31m'
 MAG=$'\033[35m'; BLUE=$'\033[34m'
@@ -107,7 +128,7 @@ bar() {
 # Segundos hasta un epoch -> "2h13m" / "3d4h" / "12m"
 countdown() {
   local left=$(( $1 - $(date +%s) ))
-  [ "$left" -le 0 ] && { printf 'now'; return; }
+  [ "$left" -le 0 ] && { printf '%s' "$L_NOW"; return; }
   if [ "$left" -ge 86400 ]; then printf '%dd%dh' $((left / 86400)) $(((left % 86400) / 3600))
   elif [ "$left" -ge 3600 ]; then printf '%dh%02dm' $((left / 3600)) $(((left % 3600) / 60))
   else printf '%dm' $((left / 60)); fi
@@ -166,7 +187,7 @@ if [ -n "$dir" ]; then
     [ "$n_m" -gt 0 ] && g+=" ${YELLOW}✚${n_m}${R}"
     [ "$n_u" -gt 0 ] && g+=" ${DIM}?${n_u}${R}"
     [ "$n_c" -gt 0 ] && g+=" ${RED}✖${n_c}${R}"
-    [ -n "$g" ] && l1+="${sep}${g# }" || l1+="${sep}${GREEN}✔ clean${R}"
+    [ -n "$g" ] && l1+="${sep}${g# }" || l1+="${sep}${GREEN}${L_CLEAN}${R}"
 
     # Local diff server (127.0.0.1, read-only): started on its own if it is not running
     ensure_server
@@ -206,7 +227,7 @@ fi
 [ -n "$vim" ] && l1+="${sep}${DIM}${vim}${R}"
 # ⓘ: link to the bar legend (served by diffserver.py)
 if [ -n "$l1" ]; then
-  l1+=" "$'\033]8;;'"http://127.0.0.1:${PORT}/help?t=${TOKEN}"$'\a'"${DIM} ⓘ help ${R}"$'\033]8;;\a'
+  l1+=" "$'\033]8;;'"http://127.0.0.1:${PORT}/help?t=${TOKEN}"$'\a'"${DIM} ${L_HELP} ${R}"$'\033]8;;\a'
 fi
 
 # ---------- Line 2: usage ----------
@@ -255,7 +276,7 @@ fi
 if [ -n "$hit" ]; then
   hp=$(awk -v h="$hit" 'BEGIN{printf "%.0f", h*100}')
   if [ "$hp" -ge 70 ]; then c=$GREEN; elif [ "$hp" -ge 40 ]; then c=$YELLOW; else c=$RED; fi
-  cache_seg="${DIM}cache${R} ${c}${hp}%${R}"
+  cache_seg="${DIM}${L_CACHE}${R} ${c}${hp}%${R}"
 fi
 
 # Prompt cache expiry (5 min after the last activity, approximated with the transcript mtime).
@@ -271,7 +292,7 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
     if [ "$left" -gt 60 ]; then ttl="${GREEN}↺${hm}${R}"
     elif [ "$left" -gt 0 ]; then ttl="${YELLOW}↺${hm}${R}"
     else
-      ttl="${RED}exp ${hm}${R}"
+      ttl="${RED}${L_EXP} ${hm}${R}"
       # 5-minute cache-write price per million tokens, from the official pricing table
       # (https://platform.claude.com/docs/en/about-claude/pricing). STATUSLINE_RECACHE_USD_PER_MTOK overrides it.
       m=$(printf '%s' "$model" | tr '[:upper:]' '[:lower:]')
@@ -286,10 +307,12 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
       else price=6.25; fi
       price="${STATUSLINE_RECACHE_USD_PER_MTOK:-$price}"
       if [ "${cur:-0}" -ge 50000 ] 2>/dev/null; then
-        warning="${RED}${BOLD}Cache expired${R}${RED}: the next prompt re-caches $(fmt "$cur") ≈ \$$(awk -v t="$cur" -v r="$price" 'BEGIN{printf "%.2f", t * r / 1000000}') → /compact${R}"
+        tok_tag='{tokens}'; cost_tag='{cost}'
+        warning="${L_WARN//$tok_tag/$(fmt "$cur")}"
+        warning="${RED}${BOLD}${warning//$cost_tag/\$$(awk -v t="$cur" -v r="$price" 'BEGIN{printf "%.2f", t * r / 1000000}')}${R}"
       fi
     fi
-    cache_seg="${cache_seg:-${DIM}cache${R}} ${ttl}"
+    cache_seg="${cache_seg:-${DIM}${L_CACHE}${R}} ${ttl}"
   fi
 fi
 [ -n "$cache_seg" ] && add2 "$cache_seg"

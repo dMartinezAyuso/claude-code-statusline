@@ -23,8 +23,8 @@ jobs:
           persist-credentials: false
       - name: Syntax and shellcheck
         run: |
-          bash -n statusline.sh install.sh scripts/*.sh tests/test_statusline.sh
-          shellcheck -S warning statusline.sh install.sh scripts/*.sh tests/test_statusline.sh
+          bash -n statusline.sh install.sh scripts/*.sh tests/test_statusline.sh tests/test_install.sh
+          shellcheck -S warning statusline.sh install.sh scripts/*.sh tests/test_statusline.sh tests/test_install.sh
       - name: Compile Python
         run: python3 -m py_compile diffserver.py
       - name: VERSION consistent with CHANGELOG
@@ -57,3 +57,6 @@ jobs:
       - name: Bar integration test
         timeout-minutes: 3
         run: bash tests/test_statusline.sh
+      - name: Installer test
+        timeout-minutes: 3
+        run: bash tests/test_install.sh

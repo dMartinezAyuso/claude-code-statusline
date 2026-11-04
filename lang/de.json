@@ -1,0 +1,211 @@
+{
+  "bar": {
+    "cache": "Cache",
+    "clean": "✔ sauber",
+    "help": "ⓘ Hilfe",
+    "now": "jetzt",
+    "exp": "abgel.",
+    "warn": "Cache abgelaufen: der nächste Prompt baut {tokens} ≈ {cost} neu auf → /compact"
+  },
+  "page": {
+    "title": "Hilfe · Statusleiste",
+    "intro": "Was die einzelnen Teile der Claude-Code-Statusleiste bedeuten."
+  },
+  "diff": {
+    "title": "Änderungen · {repo} ({count})",
+    "none": "Keine Änderungen gegenüber HEAD.",
+    "no_text": "(keine Textänderungen)",
+    "truncated": "... Diff gekürzt (mehr als {kib} KiB)"
+  },
+  "sections": [
+    {
+      "title": "Zeile 1 · Modell und Git",
+      "rows": [
+        [
+          "Modell (Aufwand)",
+          "Aktives Modell und in Klammern die Stufe des Denkaufwands."
+        ],
+        [
+          "⚡",
+          "Schnellmodus aktiv."
+        ],
+        [
+          "🤖 Name",
+          "Du befindest dich in einem bestimmten Agenten."
+        ],
+        [
+          "Projekt",
+          "Aktueller Arbeitsordner."
+        ],
+        [
+          "⎇ Branch",
+          "Aktueller Git-Branch."
+        ],
+        [
+          "↑N",
+          "Lokale Commits, die noch nicht gepusht wurden."
+        ],
+        [
+          "↓N",
+          "Remote-Commits, die noch nicht gepullt wurden."
+        ],
+        [
+          "●N",
+          "Für den Commit vorgemerkte Dateien (staged)."
+        ],
+        [
+          "✚N",
+          "Geänderte, nicht vorgemerkte Dateien."
+        ],
+        [
+          "?N",
+          "Neue, nicht verfolgte Dateien."
+        ],
+        [
+          "✖N",
+          "Dateien mit Merge-Konflikt."
+        ],
+        [
+          "✔ sauber",
+          "Keine ausstehenden Änderungen."
+        ],
+        [
+          "PR #N",
+          "Pull Request des Branches. Grün = genehmigt, rot = Änderungen angefordert, gelb = ausstehend."
+        ],
+        [
+          "NORMAL / INSERT",
+          "Vim-Modus des Claude-Code-Prompts, wenn der Vim-Modus aktiv ist."
+        ],
+        [
+          "ⓘ Hilfe",
+          "Diese Seite."
+        ]
+      ]
+    },
+    {
+      "title": "Zeile 2 · Verbrauch",
+      "rows": [
+        [
+          "ctx ███░░ N%",
+          "Wie voll der Kontext der Unterhaltung ist, mit verwendeten/gesamten Tokens. Grün < 50 %, gelb < 80 %, rot ab 80 %. Wenn er rot wird, führe /compact oder /clear aus."
+        ],
+        [
+          "5h ███░░ N% ↻",
+          "Nutzung des 5-Stunden-Limits deines Abonnements und Countdown bis zur Erneuerung (↻jetzt = bereits erneuert). Dieselben Farben wie ctx."
+        ],
+        [
+          "7d ███░░ N% ↻",
+          "Nutzung des Wochenlimits und Countdown bis zur Erneuerung. Dieselben Farben wie ctx."
+        ],
+        [
+          "$N.NN",
+          "Kosten der Sitzung. Grün < 1 $, gelb < 5 $, rot ab 5 $."
+        ],
+        [
+          "$N/h",
+          "Ausgabenrate pro Stunde, sichtbar nach 5 Min. Sitzung. Grau unter STATUSLINE_BURN_WARN (Standard 15 $/h), gelb ab dort, rot ab STATUSLINE_BURN_HIGH (Standard 30 $/h)."
+        ],
+        [
+          "Cache N%",
+          "Anteil des Prompts, der aus dem Prompt-Cache kam, was günstiger ist. Grün ≥ 70 %, gelb ≥ 40 %, darunter rot."
+        ],
+        [
+          "↺HH:MM",
+          "Uhrzeit, zu der der Prompt-Cache abläuft: 5 Min. nach der letzten Aktivität der Unterhaltung (eine Schätzung, kann um einige Sekunden abweichen). Grün, solange mehr als 1 Min. bleibt, danach gelb."
+        ],
+        [
+          "abgel. HH:MM",
+          "In Rot: Der Prompt-Cache ist zu dieser Uhrzeit abgelaufen. Der nächste Prompt muss ihn neu aufbauen, was mehr kostet (siehe Warnzeile)."
+        ],
+        [
+          "↓N ↑N",
+          "Aufgelaufene Tokens: ↓ gelesen (Eingabe) und ↑ geschrieben (Ausgabe)."
+        ],
+        [
+          "⏱",
+          "Dauer der Sitzung."
+        ],
+        [
+          "+N -N",
+          "In der Sitzung hinzugefügte (grün) und gelöschte (rot) Codezeilen."
+        ]
+      ]
+    },
+    {
+      "title": "Warnzeile · nur bei Bedarf",
+      "rows": [
+        [
+          "Cache abgelaufen: …",
+          "Erscheint zwischen Zeile 2 und 3, wenn der Cache abgelaufen und der Kontext groß ist (≥ 50k Tokens). Der nächste Prompt baut ihn komplett neu auf; die geschätzten Kosten werden angezeigt. Vorher /compact auszuführen macht es günstiger."
+        ]
+      ]
+    },
+    {
+      "title": "Zeile 3 · geänderte Dateien",
+      "rows": [
+        [
+          "Δ",
+          "Liste aller gegenüber HEAD geänderten Dateien. Cmd+Klick auf eine Datei zeigt ihren Diff im Browser."
+        ],
+        [
+          "M",
+          "Geändert."
+        ],
+        [
+          "A",
+          "Hinzugefügt (staged)."
+        ],
+        [
+          "D",
+          "Gelöscht."
+        ],
+        [
+          "R",
+          "Umbenannt."
+        ],
+        [
+          "U",
+          "Konflikt."
+        ],
+        [
+          "?",
+          "Neu, nicht verfolgt."
+        ]
+      ]
+    },
+    {
+      "title": "Gut zu wissen",
+      "rows": [
+        [
+          "Fehlende Angaben",
+          "Was Claude Code nicht meldet (zum Beispiel die 5h/7d-Limits ohne Abonnement), wird einfach nicht angezeigt."
+        ],
+        [
+          "Links und Token",
+          "Links enthalten ein geheimes Token. Teile sie nicht und füge sie nicht in Screenshots ein. Wenn einer nicht mehr funktioniert (403), klicke auf einen aktuellen Link in der Leiste."
+        ],
+        [
+          "STATUSLINE_PORT",
+          "Port dieses lokalen Servers (Standard 8765)."
+        ],
+        [
+          "STATUSLINE_BURN_WARN / STATUSLINE_BURN_HIGH",
+          "Ausgabenrate in USD pro Stunde, ab der $N/h gelb / rot wird (Standard 15 und 30; willkürlich, stelle ein, was für dich viel ist)."
+        ],
+        [
+          "STATUSLINE_RECACHE_USD_PER_MTOK",
+          "Preis pro Million Tokens zur Schätzung der Kosten für den Cache-Neuaufbau. Standard ist der 5-Minuten-Cache-Schreibpreis des aktiven Modells laut Preisseite von Anthropic (platform.claude.com/docs/en/about-claude/pricing)."
+        ],
+        [
+          "STATUSLINE_LANG",
+          "Sprache der Leiste und dieser Seite: en, es, fr, pt oder de. Sie wird beim Ausführen von install.sh gewählt; ändere sie mit ./install.sh --lang fr oder erzwinge eine andere mit dieser Variable."
+        ],
+        [
+          "Probleme",
+          "Führe ./statusline.sh --doctor im Installationsordner aus: Es prüft die Abhängigkeiten und zeigt Version und Statusordner an."
+        ]
+      ]
+    }
+  ]
+}

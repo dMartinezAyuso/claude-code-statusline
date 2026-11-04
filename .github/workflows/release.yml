@@ -23,6 +23,7 @@ jobs:
           sudo apt-get install -y jq
           python3 -m unittest discover -s tests
           bash tests/test_statusline.sh
+          bash tests/test_install.sh
       - name: Notes from CHANGELOG
         run: ./scripts/release-notes.sh "$GITHUB_REF_NAME" > NOTES.md
       - name: Package

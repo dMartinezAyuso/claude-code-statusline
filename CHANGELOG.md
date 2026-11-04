@@ -4,6 +4,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and ver
 Security changes are marked **[security]**.
 
 ## [Unreleased]
+### Added
+- Languages: the bar labels and the help page (`/help`) and diff page are available in English, Spanish, French, Portuguese and German (`lang/*.json`).
+- `install.sh` detects the language from your locale (`LC_ALL`, `LC_MESSAGES`, `LANG`, or the macOS system language), saves it and keeps it; `./install.sh --lang <code>` changes it later, and `STATUSLINE_LANG` overrides it.
+- `install.sh` is idempotent: running it again reports "Already installed" and no longer creates a new backup of `settings.json`.
+- Installer tests (`tests/test_install.sh`) and a test that every language file has the same shape as the English one.
 
 ## [0.2.1] - 2026-11-04
 ### Changed
