@@ -1,18 +1,18 @@
-name: Propuesta
-description: Una mejora o una función nueva
+name: Feature request
+description: An improvement or a new feature
 labels: [enhancement]
 body:
   - type: textarea
-    id: problema
+    id: problem
     attributes:
-      label: Qué problema quieres resolver
+      label: What problem do you want to solve
     validations: { required: true }
   - type: textarea
-    id: propuesta
+    id: proposal
     attributes:
-      label: Cómo lo harías
+      label: How would you do it
     validations: { required: true }
   - type: textarea
-    id: alternativas
+    id: alternatives
     attributes:
-      label: Alternativas que has considerado
+      label: Alternatives you considered

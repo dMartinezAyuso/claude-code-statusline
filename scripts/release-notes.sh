@@ -1,10 +1,10 @@
 #!/bin/bash
-# Imprime las notas de la versión $1 (sin 'v') tomadas de CHANGELOG.md.
+# Prints the notes of version $1 (without 'v') taken from CHANGELOG.md.
 set -eu
-RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 v="${1#v}"
 awk -v v="$v" '
-  $0 ~ "^## \\[" v "\\]" { dentro=1; next }
-  dentro && /^## \[/ { exit }
-  dentro { print }
-' "$RAIZ/CHANGELOG.md" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'
+  $0 ~ "^## \\[" v "\\]" { inside=1; next }
+  inside && /^## \[/ { exit }
+  inside { print }
+' "$ROOT/CHANGELOG.md" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'

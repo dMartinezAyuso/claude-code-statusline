@@ -1,55 +1,55 @@
 #!/bin/bash
-# Statusline personalizado (3 líneas):
-#  1) modelo/esfuerzo · proyecto · rama (ahead/behind) · estado git · PR
-#  2) contexto · límites de uso 5h/7d (con cuenta atrás) · coste · caché · tokens · duración · líneas
-#  3) todos los ficheros cambiados respecto a HEAD con su estado (envuelto en varias líneas)
+# Custom statusline (3 lines):
+#  1) model/effort · project · branch (ahead/behind) · git state · PR
+#  2) context · 5h/7d usage limits (with countdown) · cost · cache · tokens · duration · lines
+#  3) every file changed against HEAD with its status (wrapped over several lines)
 export LC_ALL=C
 
-DIR_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 case "${1:-}" in
   --version|-V)
-    echo "claude-code-statusline $(cat "$DIR_SCRIPT/VERSION" 2>/dev/null || echo desconocida)"; exit 0 ;;
+    echo "claude-code-statusline $(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo unknown)"; exit 0 ;;
   --doctor)
-    # Comprueba dependencias y estado; sale con 1 si falta algo imprescindible
+    # Checks dependencies and state; exits with 1 if something essential is missing
     fallo=0
     for c in bash jq git nc python3 awk cksum; do
-      if command -v "$c" >/dev/null 2>&1; then printf '  ✔ %s\n' "$c"; else printf '  ✖ %s (falta)\n' "$c"; fallo=1; fi
+      if command -v "$c" >/dev/null 2>&1; then printf '  ✔ %s\n' "$c"; else printf '  ✖ %s (missing)\n' "$c"; fallo=1; fi
     done
-    printf '  versión: %s\n' "$(cat "$DIR_SCRIPT/VERSION" 2>/dev/null || echo desconocida)"
-    printf '  estado:  %s\n' "${XDG_STATE_HOME:-$HOME/.local/state}/claude-code-statusline"
+    printf '  version: %s\n' "$(cat "$SCRIPT_DIR/VERSION" 2>/dev/null || echo unknown)"
+    printf '  state:   %s\n' "${XDG_STATE_HOME:-$HOME/.local/state}/claude-code-statusline"
     exit "$fallo" ;;
   -h|--help)
-    echo "Uso: statusline.sh [--version|--doctor|--help]   (sin argumentos lee el JSON de Claude Code por stdin)"; exit 0 ;;
+    echo "Usage: statusline.sh [--version|--doctor|--help]   (without arguments it reads the Claude Code JSON from stdin)"; exit 0 ;;
 esac
 
 input=$(cat)
 
-# Dónde se guarda el estado (token, pid del servidor)
-DIR_ESTADO="${XDG_STATE_HOME:-$HOME/.local/state}/claude-code-statusline"
-PUERTO="${STATUSLINE_PORT:-8765}"
-mkdir -p "$DIR_ESTADO" && chmod 700 "$DIR_ESTADO"
-# Token aleatorio (solo lectura para ti) que el servidor exige en cada petición
-if [ ! -s "$DIR_ESTADO/token" ]; then
-  # od lee exactamente 16 bytes y termina: sin tuberías infinitas (tr -dc sobre /dev/urandom se cuelga si SIGPIPE está ignorado)
-  ( umask 077; od -An -N16 -tx1 /dev/urandom | tr -d ' \n' >"$DIR_ESTADO/token" )
+# Where the state is kept (token, server pid)
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/claude-code-statusline"
+PORT="${STATUSLINE_PORT:-8765}"
+mkdir -p "$STATE_DIR" && chmod 700 "$STATE_DIR"
+# Random token (readable only by you) that the server requires on every request
+if [ ! -s "$STATE_DIR/token" ]; then
+  # od reads exactly 16 bytes and ends: no endless pipelines (tr -dc over /dev/urandom hangs if SIGPIPE is ignored)
+  ( umask 077; od -An -N16 -tx1 /dev/urandom | tr -d ' \n' >"$STATE_DIR/token" )
 fi
-TOKEN=$(cat "$DIR_ESTADO/token" 2>/dev/null)
+TOKEN=$(cat "$STATE_DIR/token" 2>/dev/null)
 
-# Arranca el servidor de diffs si no corre; si corre con una versión distinta del código
-# (p. ej. tras un `git pull`), lo reinicia para que nunca quede código antiguo en ejecución.
-asegura_servidor() {
-  local sello; sello=$(cksum <"$DIR_SCRIPT/diffserver.py" 2>/dev/null | cut -d' ' -f1,2)
-  if nc -z -w 1 127.0.0.1 "$PUERTO" 2>/dev/null; then
-    [ "$(cat "$DIR_ESTADO/server.sello" 2>/dev/null)" = "$sello" ] && return
-    [ -s "$DIR_ESTADO/server.pid" ] && kill "$(cat "$DIR_ESTADO/server.pid")" 2>/dev/null
+# Starts the diff server if it is not running; if it runs a different version of the code
+# (e.g. after a `git pull`), restarts it so old code is never left running.
+ensure_server() {
+  local stamp; stamp=$(cksum <"$SCRIPT_DIR/diffserver.py" 2>/dev/null | cut -d' ' -f1,2)
+  if nc -z -w 1 127.0.0.1 "$PORT" 2>/dev/null; then
+    [ "$(cat "$STATE_DIR/server.stamp" 2>/dev/null)" = "$stamp" ] && return
+    [ -s "$STATE_DIR/server.pid" ] && kill "$(cat "$STATE_DIR/server.pid")" 2>/dev/null
     sleep 0.3
   fi
-  printf '%s' "$sello" >"$DIR_ESTADO/server.sello"
-  (STATUSLINE_PORT="$PUERTO" STATUSLINE_STATE="$DIR_ESTADO" nohup python3 "$DIR_SCRIPT/diffserver.py" >/dev/null 2>&1 &)
+  printf '%s' "$stamp" >"$STATE_DIR/server.stamp"
+  (STATUSLINE_PORT="$PORT" STATUSLINE_STATE="$STATE_DIR" nohup python3 "$SCRIPT_DIR/diffserver.py" >/dev/null 2>&1 &)
 }
 
-# Una sola llamada a jq; separador \x1f para conservar los campos vacíos.
+# A single jq call; \x1f separator to keep empty fields.
 IFS=$'\x1f' read -r model effort dir ctx_size cur tin tout cost dur_ms added removed \
   h5 h5_reset d7 d7_reset hit pr_num pr_state vim agent fast transcript < <(
   echo "$input" | jq -r '[
@@ -89,12 +89,12 @@ fmt() {
   awk -v n="${1:-0}" 'BEGIN{ if(n>=1000000) printf "%.1fM", n/1000000; else if(n>=1000) printf "%.1fk", n/1000; else printf "%d", n }'
 }
 
-# Color según % de uso (verde <50, amarillo <80, rojo)
+# Color by usage % (green <50, yellow <80, red)
 pct_color() {
   if [ "$1" -ge 80 ]; then printf '%s' "$RED"; elif [ "$1" -ge 50 ]; then printf '%s' "$YELLOW"; else printf '%s' "$GREEN"; fi
 }
 
-# Barra de $2 posiciones para el porcentaje $1
+# $2-position bar for the percentage $1
 bar() {
   local pct=$1 width=${2:-10} filled i out=""
   filled=$(( pct * width / 100 ))
@@ -107,13 +107,13 @@ bar() {
 # Segundos hasta un epoch -> "2h13m" / "3d4h" / "12m"
 countdown() {
   local left=$(( $1 - $(date +%s) ))
-  [ "$left" -le 0 ] && { printf 'ya'; return; }
+  [ "$left" -le 0 ] && { printf 'now'; return; }
   if [ "$left" -ge 86400 ]; then printf '%dd%dh' $((left / 86400)) $(((left % 86400) / 3600))
   elif [ "$left" -ge 3600 ]; then printf '%dh%02dm' $((left / 3600)) $(((left % 3600) / 60))
   else printf '%dm' $((left / 60)); fi
 }
 
-# Ancho del terminal: $COLUMNS, /dev/tty o el tty de algún proceso ascendente (claude); 110 si no hay forma
+# Terminal width: $COLUMNS, /dev/tty or the tty of some ancestor process (claude); 110 if there is no way
 term_width() {
   local w="" pid=$$ t i src=""
   [ "${COLUMNS:-0}" -gt 20 ] 2>/dev/null && { w=$COLUMNS; src=COLUMNS; }
@@ -133,7 +133,7 @@ term_width() {
     echo "$w"
 }
 
-# ---------- Línea 1: modelo, proyecto, git ----------
+# ---------- Line 1: model, project, git ----------
 l1=""
 if [ -n "$model" ]; then
   l1+="${MAG}${BOLD}${model}${R}"
@@ -154,7 +154,7 @@ if [ -n "$dir" ]; then
       [ "${ahead#+}" != "0" ] && l1+=" ${GREEN}↑${ahead#+}${R}"
       [ "${behind#-}" != "0" ] && l1+=" ${RED}↓${behind#-}${R}"
     fi
-    # Conteos: staged (X != .), modificados en árbol (Y != .), sin seguimiento (?), conflictos (u)
+    # Counts: staged (X != .), modified in the tree (Y != .), untracked (?), conflicts (u)
     counts=$(echo "$gs" | awk '
       /^[12] /{ if (substr($2,1,1)!=".") s++; if (substr($2,2,1)!=".") m++ }
       /^\?/{ u++ }
@@ -166,14 +166,14 @@ if [ -n "$dir" ]; then
     [ "$n_m" -gt 0 ] && g+=" ${YELLOW}✚${n_m}${R}"
     [ "$n_u" -gt 0 ] && g+=" ${DIM}?${n_u}${R}"
     [ "$n_c" -gt 0 ] && g+=" ${RED}✖${n_c}${R}"
-    [ -n "$g" ] && l1+="${sep}${g# }" || l1+="${sep}${GREEN}✔ limpio${R}"
+    [ -n "$g" ] && l1+="${sep}${g# }" || l1+="${sep}${GREEN}✔ clean${R}"
 
-    # Servidor local de diffs (127.0.0.1, solo lectura): se arranca solo si no está corriendo
-    asegura_servidor
+    # Local diff server (127.0.0.1, read-only): started on its own if it is not running
+    ensure_server
     top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)
     enc() { local x="$1"; x="${x//%/%25}"; x="${x// /%20}"; x="${x//#/%23}"; x="${x//\?/%3F}"; x="${x//&/%26}"; printf '%s' "$x"; }
-    base="http://127.0.0.1:${PUERTO}/?t=${TOKEN}&d=$(enc "$top")"
-    # Línea 3+: todos los ficheros cambiados respecto a HEAD (orden alfabético, estable), envueltos a ~110 columnas
+    base="http://127.0.0.1:${PORT}/?t=${TOKEN}&d=$(enc "$top")"
+    # Line 3+: every file changed against HEAD (alphabetical, stable order), wrapped at ~110 columns
     if [ $((n_s + n_m + n_u + n_c)) -gt 0 ]; then
       width=$(( $(term_width) - 4 )); cur_len=0
       files_line="${DIM}Δ${R} "; cur_len=2
@@ -182,7 +182,7 @@ if [ -n "$dir" ]; then
         st="${line:0:2}"; f="${line:3}"; f="${f##* -> }"; f="${f%\"}"; f="${f#\"}"
         case "$st" in
           "??") mark="${DIM}?${R}" ;;
-          U?|?U|AA|DD) mark="${RED}U${R}" ;;   # conflictos: antes que A*/*D*, que los taparían
+          U?|?U|AA|DD) mark="${RED}U${R}" ;;   # conflicts: before A*/*D*, which would hide them
           *D*) mark="${RED}D${R}" ;;
           A*) mark="${GREEN}A${R}" ;;
           R*) mark="${CYAN}R${R}" ;;
@@ -204,23 +204,23 @@ if [ -n "$pr_num" ]; then
   l1+="${sep}${pc}PR #${pr_num}${R}"
 fi
 [ -n "$vim" ] && l1+="${sep}${DIM}${vim}${R}"
-# ⓘ: enlace a la leyenda de la barra (la sirve diffserver.py)
+# ⓘ: link to the bar legend (served by diffserver.py)
 if [ -n "$l1" ]; then
-  l1+=" "$'\033]8;;'"http://127.0.0.1:${PUERTO}/ayuda?t=${TOKEN}"$'\a'"${DIM} ⓘ ayuda ${R}"$'\033]8;;\a'
+  l1+=" "$'\033]8;;'"http://127.0.0.1:${PORT}/help?t=${TOKEN}"$'\a'"${DIM} ⓘ help ${R}"$'\033]8;;\a'
 fi
 
-# ---------- Línea 2: consumo ----------
+# ---------- Line 2: usage ----------
 l2=""
 add2() { if [ -n "$l2" ]; then l2+="${sep}$1"; else l2="$1"; fi; }
 
-# Contexto
+# Context
 if [ -n "$ctx_size" ] && [ "$ctx_size" -gt 0 ] 2>/dev/null; then
   pct=$(( cur * 100 / ctx_size )); [ "$pct" -gt 100 ] && pct=100
   c=$(pct_color "$pct")
   add2 "${DIM}ctx${R} ${c}$(bar "$pct" 10) ${pct}%${R}${DIM} ($(fmt "$cur")/$(fmt "$ctx_size"))${R}"
 fi
 
-# Límites de uso de la suscripción: lo que llevas gastado y cuándo se renueva
+# Subscription usage limits: how much you have used and when it renews
 if [ -n "$h5" ]; then
   p=$(printf '%.0f' "$h5"); c=$(pct_color "$p")
   s="${DIM}5h${R} ${c}$(bar "$p" 8) ${p}%${R}"
@@ -234,7 +234,7 @@ if [ -n "$d7" ]; then
   add2 "$s"
 fi
 
-# Coste
+# Cost
 if [ -n "$cost" ]; then
   if awk "BEGIN{exit !($cost >= 5)}"; then c=$RED; elif awk "BEGIN{exit !($cost >= 1)}"; then c=$YELLOW; else c=$GREEN; fi
   burn=""
@@ -247,11 +247,11 @@ if [ -n "$cost" ]; then
   add2 "${c}\$$(printf '%.2f' "$cost")${R}${burn}"
 fi
 
-# Aciertos de caché de prompt (alto = barato)
+# Prompt cache hits (high = cheap)
 if [ -n "$hit" ]; then
   hp=$(awk -v h="$hit" 'BEGIN{printf "%.0f", h*100}')
   if [ "$hp" -ge 70 ]; then c=$GREEN; elif [ "$hp" -ge 40 ]; then c=$YELLOW; else c=$RED; fi
-  cache_seg="${DIM}caché${R} ${c}${hp}%${R}"
+  cache_seg="${DIM}cache${R} ${c}${hp}%${R}"
 fi
 
 # Prompt cache expiry (5 min after the last activity, approximated with the transcript mtime).
@@ -277,17 +277,17 @@ if [ -n "$transcript" ] && [ -f "$transcript" ]; then
         alerta="${RED}${BOLD}Cache expired${R}${RED}: the next prompt re-caches $(fmt "$cur") ≈ \$$(awk -v t="$cur" -v r="$tarifa" 'BEGIN{printf "%.2f", t * r / 1000000}') → /compact${R}"
       fi
     fi
-    cache_seg="${cache_seg:-${DIM}caché${R}} ${ttl}"
+    cache_seg="${cache_seg:-${DIM}cache${R}} ${ttl}"
   fi
 fi
 [ -n "$cache_seg" ] && add2 "$cache_seg"
 
-# Tokens acumulados
+# Accumulated tokens
 if [ -n "$tin" ] || [ -n "$tout" ]; then
   add2 "${DIM}↓${R}$(fmt "$tin") ${DIM}↑${R}$(fmt "$tout")"
 fi
 
-# Duración
+# Duration
 if [ -n "$dur_ms" ]; then
   s=$(( dur_ms / 1000 ))
   if [ "$s" -ge 3600 ]; then t="$((s/3600))h$(( (s%3600)/60 ))m"
@@ -296,7 +296,7 @@ if [ -n "$dur_ms" ]; then
   add2 "${DIM}⏱ ${t}${R}"
 fi
 
-# Líneas de código de la sesión
+# Lines of code in the session
 if [ -n "$added" ] || [ -n "$removed" ]; then
   add2 "${GREEN}+${added:-0}${R} ${RED}-${removed:-0}${R}"
 fi

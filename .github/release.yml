@@ -2,13 +2,13 @@ changelog:
   exclude:
     labels: [ignore-for-release]
   categories:
-    - title: Seguridad
+    - title: Security
       labels: [security]
-    - title: Novedades
+    - title: What's new
       labels: [enhancement]
-    - title: Correcciones
+    - title: Fixes
       labels: [bug]
-    - title: Documentación
+    - title: Documentation
       labels: [documentation]
-    - title: Otros cambios
+    - title: Other changes
       labels: ["*"]

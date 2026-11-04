@@ -1,13 +1,13 @@
 #!/bin/bash
-# Falla si VERSION no es SemVer o si CHANGELOG.md no tiene la entrada de esa versión.
-# Con un argumento (p. ej. el tag v1.2.3) comprueba además que coincide con VERSION.
+# Fails if VERSION is not SemVer or CHANGELOG.md has no entry for that version.
+# With an argument (e.g. the tag v1.2.3) it also checks that it matches VERSION.
 set -eu
-RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-v=$(tr -d '[:space:]' <"$RAIZ/VERSION")
-[[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "VERSION no es SemVer: '$v'" >&2; exit 1; }
-grep -qE "^## \[$v\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" "$RAIZ/CHANGELOG.md" \
-  || { echo "CHANGELOG.md no tiene la entrada '## [$v] - AAAA-MM-DD'" >&2; exit 1; }
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+v=$(tr -d '[:space:]' <"$ROOT/VERSION")
+[[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "VERSION is not SemVer: '$v'" >&2; exit 1; }
+grep -qE "^## \[$v\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" "$ROOT/CHANGELOG.md" \
+  || { echo "CHANGELOG.md has no entry '## [$v] - YYYY-MM-DD'" >&2; exit 1; }
 if [ -n "${1:-}" ] && [ "${1#v}" != "$v" ]; then
-  echo "El tag '$1' no coincide con VERSION ($v)" >&2; exit 1
+  echo "Tag '$1' does not match VERSION ($v)" >&2; exit 1
 fi
-echo "OK versión $v"
+echo "OK version $v"
