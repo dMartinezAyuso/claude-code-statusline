@@ -106,6 +106,7 @@ chk "burn: invalid values fall back to the defaults"     '[ "$(burn_color abc -1
 
 # Billing mode: subscription (Claude Code reports usage limits) vs API (it does not)
 LIMITS='"rate_limits":{"five_hour":{"used_percentage":10,"resets_at":9999999999}}'
+# shellcheck disable=SC2163  # "$kv" is an assignment like VAR=value on purpose
 bill_in() {   # $1 = extra JSON fields (or empty), $2... = VAR=value
   local extra="$1"; shift
   echo "$NO_GIT${extra:+,$extra},\"transcript_path\":\"$TMP/t_old.jsonl\"}" \
