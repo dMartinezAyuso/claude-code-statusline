@@ -79,7 +79,7 @@ ensure_server() {
 
 # A single jq call; \x1f separator to keep empty fields.
 IFS=$'\x1f' read -r model effort dir ctx_size cur tin tout cost dur_ms added removed \
-  h5 h5_reset d7 d7_reset hit pr_num pr_state vim agent fast transcript pc_expires pc_cold pc_observed < <(
+  h5 h5_reset d7 d7_reset hit pr_num pr_state vim agent fast transcript pc_expires pc_cold pc_observed wt_path < <(
   echo "$input" | jq -r '[
     (.model.display_name // ""),
     (.effort.level // ""),
@@ -105,9 +105,24 @@ IFS=$'\x1f' read -r model effort dir ctx_size cur tin tout cost dur_ms added rem
     (.transcript_path // ""),
     (.prompt_cache.expires_at // ""),
     (.prompt_cache.recache_tokens_if_cold // ""),
-    (if .prompt_cache.caching_observed == false then "false" else "" end)
+    (if .prompt_cache.caching_observed == false then "false" else "" end),
+    (.worktree.path // "")
   ] | map(tostring) | join("\u001f")' 2>/dev/null
 )
+
+# Directory the session really works in. Claude Code reports the folder it was started from, which is not where the
+# work happens when a worktree is created from the session. Order: STATUSLINE_DIR, the worktree Claude Code reports,
+# the last cwd in this session's transcript (each session has its own, so parallel sessions never mix), the reported folder.
+# A candidate counts only if it is a folder inside a git repository.
+is_git_dir() { [ -n "$1" ] && [ -d "$1" ] && git -C "$1" rev-parse --git-dir >/dev/null 2>&1; }
+transcript_cwd() {
+  [ -n "$1" ] && [ -r "$1" ] || return 0
+  tail -n 200 "$1" 2>/dev/null | jq -rR 'fromjson? | .cwd? // empty' 2>/dev/null | tail -n 1
+}
+for cand in "${STATUSLINE_DIR:-}" "$wt_path" "$(transcript_cwd "$transcript")"; do
+  if is_git_dir "$cand"; then dir="$cand"; break; fi
+done
+unset cand
 
 # Texts of the chosen language, one jq call; a missing key (or a broken file) falls back to English
 L_CACHE=cache; L_CLEAN="✔ clean"; L_HELP="ⓘ help"; L_NOW=now; L_EXP=exp
@@ -139,6 +154,31 @@ private=0; [ -f "$STATE_DIR/private" ] && private=1
 olink() {   # olink <url> <text>: an OSC 8 link (Cmd+click), or just the text in private mode
   if [ "$private" = 1 ]; then printf '%s' "$2"; else printf '\033]8;;%s\a%s\033]8;;\a' "$1" "$2"; fi
 }
+# Connected account, from Claude Code's own config file (no network, no credentials): the plan and a short email.
+# Plan from organizationType (claude_pro, claude_max, claude_team, claude_enterprise); Max adds 5x/20x from the rate-limit
+# tier. A config file with no account means an API key. STATUSLINE_ACCOUNT=off hides it; private mode hides only the email.
+account=""
+if [ "${STATUSLINE_ACCOUNT:-on}" != off ]; then
+  if [ -n "${CLAUDE_CONFIG_DIR:-}" ]; then acct_file="$CLAUDE_CONFIG_DIR/.claude.json"; else acct_file="$HOME/.claude.json"; fi
+  if [ -r "$acct_file" ]; then
+    IFS=$'\x1f' read -r a_mail a_type a_tier < <(jq -r '[(.oauthAccount.emailAddress // ""), (.oauthAccount.organizationType // ""), (.oauthAccount.organizationRateLimitTier // "")] | join("\u001f")' "$acct_file" 2>/dev/null)
+    case "$a_type" in
+      claude_pro) a_plan=Pro ;;
+      claude_max) a_plan=Max; [[ "$a_tier" =~ max_([0-9]+)x ]] && a_plan="Max ${BASH_REMATCH[1]}x" ;;
+      claude_team) a_plan=Team ;;
+      claude_enterprise) a_plan=Enterprise ;;
+      "") if [ -n "$a_mail" ]; then a_plan=""; else a_plan=API; fi ;;
+      *) a_plan="${a_type#claude_}" ;;
+    esac
+    if [ "$private" = 1 ] || [ -z "$a_mail" ]; then a_mail=""
+    else
+      a_user=${a_mail%@*}; [ "${#a_user}" -gt 10 ] && a_user="${a_user:0:10}…"
+      a_mail="${a_user}@${a_mail#*@}"
+    fi
+    account="${a_plan}${a_plan:+${a_mail:+ }}${a_mail}"
+  fi
+fi
+
 # The help page is a fixed legend, so its links carry no token. hl <row id> <text> links a part of the bar to
 # its row (Cmd+click); STATUSLINE_LINKS=off leaves plain text. The text on screen is the same either way.
 links="${STATUSLINE_LINKS:-on}"
@@ -208,6 +248,7 @@ if [ -n "$model" ]; then
   [ -n "$effort" ] && l1+="${DIM} (${effort})${R}"
   [ -n "$fast" ] && l1+=" ${YELLOW}⚡${R}"
 fi
+[ -n "$account" ] && l1+="${sep}$(hl account "${DIM}${account}${R}")"
 [ -n "$agent" ] && l1+="${sep}${CYAN}🤖 ${agent}${R}"
 
 files_line=""

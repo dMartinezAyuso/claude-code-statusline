@@ -4,6 +4,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and ver
 Security changes are marked **[security]**.
 
 ## [Unreleased]
+### Added
+- The connected account on line 1: the plan (`Pro`, `Max 5x`/`20x`, `Team`, `Enterprise`, `API`) and a short email, read from Claude Code's own config (no network, no credentials). Private mode hides the email; `STATUSLINE_ACCOUNT=off` hides it all. Linked to a new row of the help page, translated in all five languages.
+- Example images of the bar with many changed files (compact and count) in the README, regenerated with `scripts/render-screenshots.sh`.
+### Fixed
+- The bar followed the folder the session was started from, so it missed the changes of a worktree created from the session. It now uses `STATUSLINE_DIR`, the reported `worktree.path`, or the last directory in the session's own transcript, so parallel sessions stay separate.
 
 ## [0.4.0] - 2026-11-04
 ### Security

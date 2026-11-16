@@ -22,7 +22,7 @@ chk() { if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 cp -R "$ROOT/statusline.sh" "$ROOT/diffserver.py" "$ROOT/VERSION" "$ROOT/lang" "$TMP/"
 git init -q "$TMP/repo" && echo hello >"$TMP/repo/f.txt"
 
-export XDG_STATE_HOME="$TMP/state"
+export XDG_STATE_HOME="$TMP/state" CLAUDE_CONFIG_DIR="$TMP/noconfig"
 STATUSLINE_PORT=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
 export STATUSLINE_PORT
 STATE="$XDG_STATE_HOME/claude-code-statusline"
@@ -313,6 +313,45 @@ chk "--doctor tells whether private mode is on"       '"$TMP/statusline.sh" --do
 "$TMP/statusline.sh" --private off >/dev/null
 chk "--private off brings the links back"             '[ ! -f "$STATE/private" ] && printf "%s" "$(link_raw)" | grep -q $'"'"'\033]8;;'"'"
 chk "--private rejects anything else"                 '! "$TMP/statusline.sh" --private maybe >/dev/null 2>&1'
+
+# Working directory of the session: the harness folder is not where the work happens when Claude creates a worktree
+git init -q "$TMP/harness"; git -C "$TMP/harness" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+git -C "$TMP/harness" worktree add -q -b jira-123 "$TMP/wt-jira123"
+echo changed >"$TMP/wt-jira123/w.txt"
+transcript="$TMP/session.jsonl"
+printf '%s\n' '{"type":"user","cwd":"'"$TMP/harness"'"}' '{"type":"assistant","cwd":"'"$TMP/wt-jira123"'"}' '{"type":"attachment"}' >"$transcript"
+wt_run() { echo "{\"model\":{\"display_name\":\"M\"},\"workspace\":{\"current_dir\":\"$TMP/harness\"},\"transcript_path\":\"$1\"}" | ( [ $# -gt 1 ] && export "${@:2}"; timeout_run "$TMP/statusline.sh" 2>/dev/null ) | plain; }
+wt_out=$(wt_run "$transcript")
+chk "the last cwd of the transcript wins over the harness folder"  '[[ "$wt_out" == *wt-jira123* ]] && [[ "$wt_out" == *jira-123* ]] && [[ "$wt_out" == *w.txt* ]]'
+printf '%s\n' '{"type":"assistant","cwd":"/does/not/exist"}' >"$TMP/bad.jsonl"
+chk "a cwd that no longer exists falls back to current_dir"       '[[ "$(wt_run "$TMP/bad.jsonl")" == *" harness"* ]]'
+mkdir -p "$TMP/notgit"; printf '%s\n' '{"type":"assistant","cwd":"'"$TMP/notgit"'"}' >"$TMP/nogit.jsonl"
+chk "a cwd outside any git repository falls back to current_dir"  '[[ "$(wt_run "$TMP/nogit.jsonl")" == *" harness"* ]]'
+chk "STATUSLINE_DIR forces the directory"                          '[[ "$(wt_run "$transcript" STATUSLINE_DIR="$TMP/harness")" == *" harness"* ]]'
+chk "a missing transcript does not break the bar"                  '[[ "$(wt_run "$TMP/none.jsonl")" == *" harness"* ]]'
+wt_json='{"model":{"display_name":"M"},"workspace":{"current_dir":"'"$TMP/harness"'"},"worktree":{"path":"'"$TMP/wt-jira123"'"}}'
+chk "the worktree.path field of Claude Code is used when present" '[[ "$(echo "$wt_json" | timeout_run "$TMP/statusline.sh" 2>/dev/null | plain)" == *wt-jira123* ]]'
+
+# Connected account: plan and a short email, read from Claude Code's own config (no network, no secrets)
+mkdir -p "$TMP/cfg"
+acct_run() {   # acct_run <oauthAccount json or ""> [VAR=value...]: line 1 without colours or links
+  if [ -n "$1" ]; then printf '{"oauthAccount":%s}' "$1" >"$TMP/cfg/.claude.json"; else printf '{}' >"$TMP/cfg/.claude.json"; fi
+  echo "$JSON" | ( export CLAUDE_CONFIG_DIR="$TMP/cfg"; [ $# -gt 1 ] && export "${@:2}"; timeout_run "$TMP/statusline.sh" 2>/dev/null ) | plain | head -1
+}
+PRO='{"emailAddress":"diego@gmail.com","organizationType":"claude_pro","organizationRateLimitTier":"default_claude_ai"}'
+MAX='{"emailAddress":"diego.martinez.ayuso@sanitas.es","organizationType":"claude_max","organizationRateLimitTier":"default_claude_max_5x"}'
+chk "the account shows the plan and the email"         '[[ "$(acct_run "$PRO")" == *"Pro diego@gmail.com"* ]]'
+chk "a Max plan shows its 5x/20x tier"                 '[[ "$(acct_run "$MAX")" == *"Max 5x "* ]]'
+chk "a long email is shortened but keeps its domain"   '[[ "$(acct_run "$MAX")" == *"diego.mart…@sanitas.es"* ]]'
+chk "team and enterprise plans are named"              '[[ "$(acct_run '"'"'{"emailAddress":"a@b.co","organizationType":"claude_team"}'"'"')" == *"Team a@b.co"* ]]'
+chk "a config without an account is an API account"    '[[ "$(acct_run "")" == *"API"* ]]'
+chk "STATUSLINE_ACCOUNT=off hides it"                  '[[ "$(acct_run "$PRO" STATUSLINE_ACCOUNT=off)" != *gmail* ]]'
+chk "no config file at all shows nothing"              '[[ "$(echo "$JSON" | CLAUDE_CONFIG_DIR="$TMP/nocfg" HOME="$TMP/nohome" timeout_run "$TMP/statusline.sh" 2>/dev/null | plain | head -1)" != *API* ]]'
+acct_link=$(printf '{"oauthAccount":%s}' "$PRO" >"$TMP/cfg/.claude.json"; echo "$JSON" | CLAUDE_CONFIG_DIR="$TMP/cfg" timeout_run "$TMP/statusline.sh" 2>/dev/null | head -1)
+chk "the account links to its help row"                '[[ "$acct_link" == *"/help#account"* ]]'
+"$TMP/statusline.sh" --private on >/dev/null
+chk "private mode hides the email but keeps the plan"  '[[ "$(acct_run "$PRO")" == *Pro* ]] && [[ "$(acct_run "$PRO")" != *gmail* ]]'
+"$TMP/statusline.sh" --private off >/dev/null
 
 chk "--version works"  '"$TMP/statusline.sh" --version | grep -q "^claude-code-statusline [0-9]"'
 chk "--doctor works"   '"$TMP/statusline.sh" --doctor >/dev/null'

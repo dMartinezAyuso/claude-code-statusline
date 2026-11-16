@@ -6,9 +6,15 @@
 
 A custom 3-line status bar for [Claude Code](https://claude.com/claude-code):
 
-1. Model and effort · project · git branch (↑ahead ↓behind) · git state · PR
+1. Model and effort · account (plan and email) · project · git branch (↑ahead ↓behind) · git state · PR
 2. Context · 5h/7d usage limits with countdown · cost (and $/h rate with an API account, see [Subscription or API](#subscription-or-api)) · prompt cache with expiry time · tokens · duration · lines
 3. The files changed against `HEAD`: the first 10, then a `+N more` link when there are more (see [Changed files](#changed-files)). **Cmd+click** on a file opens its diff in the browser.
+
+![The status bar with many changed files: line 3 lists the first 10 and ends with +11 more](docs/images/statusline-compact.png)
+
+With `STATUSLINE_FILES=count` the third line is just the totals per status (see [Changed files](#changed-files)):
+
+![The status bar with the file counts](docs/images/statusline-count.png)
 
 **Cmd+click on any part of the bar** (context, limits, cost, cache, tokens, the file counters…) opens the help page right at the explanation of that part, highlighted. The `ⓘ help` link opens the whole legend, with every symbol, color and setting. The parts are plain links, so terminals may underline them; set `STATUSLINE_LINKS=off` to keep only `ⓘ help`. These links go to the help page, which is a fixed legend: they carry **nothing secret** (see [Privacy](#privacy)).
 
@@ -62,6 +68,25 @@ The cost that Claude Code reports is always in US dollars and means two differen
 
 The mode is detected automatically: Claude Code reports the usage limits (`rate_limits`) only with a subscription. Claude Code does not report which plan you have, so Pro and Max look the same. Set `STATUSLINE_BILLING=api` or `STATUSLINE_BILLING=subscription` to force one. All amounts stay in US dollars.
 
+## Account
+
+Line 1 shows the connected account right after the model: the plan and a short email, for example `Max 5x alex.river…@example.com`. It is read from Claude Code's own config file (`$CLAUDE_CONFIG_DIR/.claude.json`, or `~/.claude.json`), with no network and no credentials.
+
+- **Plan**: `Pro`, `Max 5x` / `Max 20x`, `Team`, `Enterprise`, or `API` when the config has no account (an API key).
+- **Email**: the first 10 characters of the user name and the whole domain, so a work and a personal account stay distinguishable.
+- Useful if you switch accounts with `CLAUDE_CONFIG_DIR`. [Private mode](#privacy) hides the email and keeps the plan; `STATUSLINE_ACCOUNT=off` hides all of it.
+
+## Worktrees and parallel sessions
+
+Claude Code reports the folder the session was **started** from. If you start it in one folder and ask it to create a worktree for a task, the changes happen elsewhere and the bar would show the wrong repository. So the bar looks for the directory in this order and uses the first that is a folder inside a git repository:
+
+1. `STATUSLINE_DIR`, if you set it.
+2. The worktree Claude Code reports (`worktree.path`), if any.
+3. The **last working directory recorded in the transcript of this session**. Every session has its own transcript, so several sessions open at once, each on its own worktree, never mix.
+4. The folder Claude Code reports.
+
+The project name, the branch, the counters and the file links then refer to the worktree. Limitation: if Claude works in a worktree only through absolute paths and never changes directory, the transcript keeps the old one; set `STATUSLINE_DIR` then.
+
 ## Changed files
 
 With many changed files the third line would fill the screen, so by default it lists the first 10 and ends with a **`+N more`** link that opens the page with all of them. Choose how it looks with two variables:
@@ -102,13 +127,15 @@ All settings are optional environment variables:
 | `STATUSLINE_TOKEN_TTL_HOURS` | `24` | Hours after which the secret token of the file links is replaced (`0` = never). |
 | `STATUSLINE_LINKS` | `on` | `on` or `off`: whether each part of the bar links to its row in the help page. |
 | `STATUSLINE_BILLING` | `auto` | `auto`, `api` or `subscription`: how the cost is presented (see [Subscription or API](#subscription-or-api)). |
+| `STATUSLINE_ACCOUNT` | `on` | `on` or `off`: whether line 1 shows the plan and email (see [Account](#account)). |
+| `STATUSLINE_DIR` | none | Forces the directory the bar reports on, instead of the one Claude Code or the transcript gives (see [Worktrees](#worktrees-and-parallel-sessions)). |
 | `STATUSLINE_FILES` | `compact` | How the changed-file list is shown: `full`, `compact`, `count` or `off`. |
 | `STATUSLINE_MAX_FILES` | `10` | How many files `compact` lists before `+N more`. |
 | `STATUSLINE_LANG` | saved by `install.sh` | Language of the bar and the help page: `en`, `es`, `fr`, `pt` or `de`. Overrides the saved language. |
 | `STATUSLINE_BURN_WARN` | `15` | Spend rate (USD/hour) from which `$N/h` turns yellow. |
 | `STATUSLINE_BURN_HIGH` | `30` | Spend rate (USD/hour) from which `$N/h` turns red. |
 | `STATUSLINE_RECACHE_USD_PER_MTOK` | by model | Price per million tokens used to estimate the re-cache cost in the warning line. |
-| `CLAUDE_CONFIG_DIR` | `~/.claude` | Folder whose `settings.json` `install.sh` edits. |
+| `CLAUDE_CONFIG_DIR` | `~/.claude` | Folder whose `settings.json` `install.sh` edits and whose `.claude.json` gives the account. |
 | `XDG_STATE_HOME` | `~/.local/state` | Where the token and server state are kept (`claude-code-statusline/`). |
 
 ## Troubleshooting

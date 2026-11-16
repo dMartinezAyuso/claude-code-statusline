@@ -32,6 +32,11 @@
           "model"
         ],
         [
+          "Konto (Pro · name@domain)",
+          "Das verbundene Konto: der Tarif (Pro, Max 5x/20x, Team, Enterprise oder API bei einem API-Schlüssel) und eine kurze E-Mail. Gelesen aus der Konfiguration von Claude Code, ohne Netzwerk und ohne Zugangsdaten. Der private Modus blendet die E-Mail aus; STATUSLINE_ACCOUNT=off blendet alles aus.",
+          "account"
+        ],
+        [
           "⚡",
           "Schnellmodus aktiv.",
           "fast"

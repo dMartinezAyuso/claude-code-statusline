@@ -32,6 +32,11 @@
           "model"
         ],
         [
+          "Compte (Pro · nom@domaine)",
+          "Le compte connecté : le forfait (Pro, Max 5x/20x, Team, Enterprise, ou API pour une clé d'API) et un e-mail court. Lu dans la configuration de Claude Code, sans réseau ni identifiants. Le mode privé masque l'e-mail ; STATUSLINE_ACCOUNT=off masque tout.",
+          "account"
+        ],
+        [
           "⚡",
           "Mode rapide activé.",
           "fast"
